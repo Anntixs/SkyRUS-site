@@ -1,0 +1,64 @@
+@page "/tc/protocols/{id:long}"
+@model SkyRus.Site.Pages.Tc.ProtocolModel
+@{ var p = Model.Protocol; ViewData["Title"] = "Протокол №" + p.Id; }
+<p><a href="/tc/students/@p.Cid">← @p.StudentName</a></p>
+<div class="head">
+  <div><h1 style="margin:0">@p.Title</h1>
+    <div class="muted">Протокол №@p.Id · @Kinds.Title(p.Kind)@(p.IsExam ? " " + p.TargetRating : "") · студент <a href="/tc/students/@p.Cid">@p.StudentName</a> (<span class="mono">@p.Cid</span>)</div></div>
+  <span class="result @p.Status">@(p.IsOpen ? "В ПРОЦЕССЕ" : p.Status == "passed" ? "СДАЛ" : "НЕ СДАЛ")</span>
+</div>
+@if (Model.Message != null) { <div class="alert ok">@Model.Message</div> }
+@if (Model.Error != null) { <div class="alert error">@Model.Error</div> }
+<dl class="kv" style="margin-bottom:18px">
+  <dt>Создан</dt><dd>@Format.Utc(p.Created) · @p.CreatedByName</dd>
+  @if (p.Closed is { } c) { <dt>Закрыт</dt><dd>@Format.Utc(c) · @p.ClosedByName</dd> }
+</dl>
+
+@if (Model.CanEdit)
+{
+  <form method="post" data-grades>
+    <div class="items">
+      @foreach (var i in p.Items)
+      {
+        <div class="item" data-item>
+          <div><h3>@i.Title</h3>@if (i.Description.Length > 0) { <p>@i.Description</p> }</div>
+          <div class="grades" role="radiogroup" aria-label="Оценка: @i.Title">
+            @for (int g = 1; g <= 5; g++)
+            {
+              <label><input type="radio" name="g@(i.Id)" value="@g" checked="@(i.Grade == g)"><span class="@(g < ProtocolService.PassGrade ? "low" : "")">@g</span></label>
+            }
+          </div>
+        </div>
+      }
+    </div>
+    <div class="summary" style="margin-top:14px">Средняя оценка: <span data-average>—</span></div>
+    <label style="display:block;margin-top:16px"><span>Комментарий</span><textarea name="comment" maxlength="4000">@p.Comment</textarea></label>
+    <p class="muted small">Аттестация сдана, если ни один пункт не оценён ниже @ProtocolService.PassGrade. @if (p.IsExam) { <span>После закрытия сданного экзамена заявка на рейтинг <b>@p.TargetRating</b> автоматически уйдёт в SkyNetwork на одобрение супервайзеру.</span> }</p>
+    <div class="row">
+      <button class="btn" type="submit" asp-page-handler="Save">Сохранить</button>
+      <button class="btn btn-accent" type="submit" asp-page-handler="Close" onclick="return confirm('Закрыть протокол? После закрытия оценки не меняются.')">Закрыть протокол</button>
+    </div>
+  </form>
+}
+else
+{
+  <partial name="_ProtocolView" model="p" />
+  @if (p.IsOpen) { <p class="muted">Экзамены на рейтинг проводят и закрывают инструкторы.</p> }
+}
+
+@if (p.IsExam && p.Status == "passed")
+{
+  <div class="card" style="margin-top:22px">
+    <h3>Заявка на рейтинг @p.TargetRating в SkyNetwork</h3>
+    <dl class="kv">
+      <dt>Статус</dt><dd><span class="badge @(p.RrStatus == "approved" ? "ok" : p.RrStatus == "declined" ? "danger" : "warn")">@RatingRequestStatuses.Title(p.RrStatus)</span> @if (p.RrId is { } rr) { <span class="muted small">№ @rr</span> }</dd>
+      @if (p.RrComment.Length > 0) { <dt>Комментарий супервайзера</dt><dd>@p.RrComment</dd> }
+      @if (p.RrError.Length > 0 && p.RrId == null) { <dt>Ошибка отправки</dt><dd class="small">@p.RrError</dd> }
+      @if (Model.ReportUrl.Length > 0) { <dt>Отчёт для супервайзера</dt><dd><a href="@Model.ReportUrl" target="_blank" rel="noopener">открыть</a></dd> }
+    </dl>
+    @if (Model.Me.IsInstructor && (p.RrId == null || p.RrStatus == "pending"))
+    {
+      <form method="post" asp-page-handler="Resend" style="margin-top:12px"><button class="btn btn-sm" type="submit">@(p.RrId == null ? "Отправить ещё раз" : "Проверить статус")</button></form>
+    }
+  </div>
+}

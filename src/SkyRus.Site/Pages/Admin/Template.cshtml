@@ -1,0 +1,20 @@
+@page "/admin/templates/{id}"
+@model SkyRus.Site.Pages.Admin.TemplateModel
+@{ var t = Model.Template; ViewData["Title"] = Model.IsNew ? "Новый вид аттестации" : t.Title; }
+<p><a href="/admin/templates">← Виды аттестаций</a></p>
+<h1>@(Model.IsNew ? "Новый вид аттестации" : t.Title)</h1>
+@if (Model.Error != null) { <div class="alert error">@Model.Error</div> }
+<form method="post" class="card form wide">
+  <label><span>Название</span><input name="title" value="@t.Title" maxlength="120" required placeholder="TWR: зачёт по теории"></label>
+  <div class="row">
+    <label><span>Вид</span><select name="kind">@foreach (var (k, v) in Kinds.Titles) { <option value="@k" selected="@(k == t.Kind)">@v</option> }</select></label>
+    <label><span>Направление</span><select name="track">
+      <option value="atc" selected="@(t.Track == "atc")">Диспетчер</option><option value="pilot" selected="@(t.Track == "pilot")">Пилот</option><option value="military" selected="@(t.Track == "military")">Военный</option></select></label>
+    <label><span>Рейтинг (для экзамена)</span><input name="targetRating" value="@t.TargetRating" maxlength="6" placeholder="S2"></label>
+    <label style="max-width:120px"><span>Порядок</span><input name="sort" type="number" value="@t.Sort"></label>
+  </div>
+  <label class="check"><input type="checkbox" name="active" value="true" checked="@t.Active"> Используется (виден при создании протокола)</label>
+  <label><span>Пункты — по одному в строке, пояснение через «|»</span>
+    <textarea name="items" style="min-height:300px" class="mono" required placeholder="Фразеология радиообмена | стандартные фразы, подтверждения">@Model.ItemsText</textarea></label>
+  <div><button class="btn btn-primary" type="submit">Сохранить</button></div>
+</form>

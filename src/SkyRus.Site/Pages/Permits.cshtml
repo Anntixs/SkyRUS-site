@@ -1,0 +1,24 @@
+@page "/permits"
+@model PermitsModel
+@{ ViewData["Title"] = "Допуски"; }
+<div class="wrap page">
+  <h1>Допуски</h1>
+  <p class="muted" style="max-width:720px">Допуск разрешает диспетчеру работать на конкретной позиции. Допуски выдают инструкторы учебного центра.</p>
+  <div class="chips">
+    <a class="chip @(Model.Selected == null ? "on" : "")" href="/permits">Все</a>
+    @foreach (var f in Model.Firs) { <a class="chip @(Model.Selected?.Id == f.Id ? "on" : "")" href="/permits?fir=@f.Code">@f.Name</a> }
+  </div>
+  @if (Model.List.Count == 0) { <div class="empty">Действующих допусков нет.</div> }
+  else
+  {
+    <div class="table-wrap"><table>
+      <thead><tr><th>Позиция</th><th>РПИ</th><th>Диспетчер</th><th>CID</th><th>Выдан</th><th>Кем</th></tr></thead>
+      <tbody>
+      @foreach (var (p, fir) in Model.List)
+      {
+        <tr><td class="mono"><b>@p.Position</b></td><td>@(fir?.Name ?? "—")</td><td>@p.Name</td><td class="mono">@p.Cid</td><td>@Format.Short(p.Issued)</td><td>@p.IssuedByName</td></tr>
+      }
+      </tbody>
+    </table></div>
+  }
+</div>

@@ -1,0 +1,32 @@
+@page "/tc/requests/{id:long}"
+@model SkyRus.Site.Pages.Tc.RequestModel
+@{ var r = Model.Item; ViewData["Title"] = "Заявка №" + r.Id; }
+<p><a href="/tc/requests">← Заявки</a></p>
+<div class="head"><h1>Заявка на обучение №@r.Id</h1>
+  <span class="badge @(r.Status == "accepted" ? "ok" : r.Status == "declined" ? "danger" : "warn")">@RequestStatuses.Title(r.Status)</span></div>
+@if (Model.Message != null) { <div class="alert ok">@Model.Message</div> }
+@if (Model.Error != null) { <div class="alert error">@Model.Error</div> }
+<div class="card" style="max-width:760px">
+  <dl class="kv">
+    <dt>CID</dt><dd class="mono"><a href="/tc/students/@r.Cid">@r.Cid</a></dd>
+    <dt>Имя</dt><dd>@r.Name</dd>
+    <dt>Рейтинг</dt><dd><span class="rating">@r.Rating</span></dd>
+    <dt>Почта</dt><dd>@(r.Email.Length > 0 ? r.Email : "—")</dd>
+    <dt>Выбранный РПИ</dt><dd>@r.FirName <span class="muted mono small">@r.FirCode</span></dd>
+    <dt>Выбранный аэродром</dt><dd class="mono">@(r.Airport.Length > 0 ? r.Airport : "—")</dd>
+    <dt>Дата заявки</dt><dd>@Format.Utc(r.Created)</dd>
+    @if (r.Handled is { } h) { <dt>@(r.Status == "accepted" ? "Принял в работу" : "Отклонил")</dt><dd>@r.HandledByName (@Format.Utc(h))</dd> }
+    @if (r.Reason.Length > 0) { <dt>Причина отказа</dt><dd>@r.Reason</dd> }
+  </dl>
+  @if (r.Message.Length > 0) { <h3 style="margin-top:18px">О себе</h3><p class="pre" style="margin:0">@r.Message</p> }
+  @if (r.Status == "open")
+  {
+    <div class="row" style="margin-top:20px;align-items:start">
+      <form method="post" asp-page-handler="Accept"><button class="btn btn-ok" type="submit">Взять в обучение</button></form>
+      <form method="post" asp-page-handler="Decline" class="row" style="flex:1">
+        <label style="flex:1"><span>Причина отказа</span><input name="reason" maxlength="1000" required></label>
+        <button class="btn btn-danger" type="submit">Отказать</button>
+      </form>
+    </div>
+  }
+</div>

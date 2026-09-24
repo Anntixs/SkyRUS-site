@@ -1,0 +1,17 @@
+@page "/admin/news/{id}"
+@model SkyRus.Site.Pages.Admin.NewsEditModel
+@{ var n = Model.Post; ViewData["Title"] = Model.IsNew ? "Новая новость" : n.Title; }
+<p><a href="/admin/news">← Новости</a></p>
+<h1>@(Model.IsNew ? "Новая новость" : "Правка новости")</h1>
+@if (Model.Error != null) { <div class="alert error">@Model.Error</div> }
+<form method="post" class="card form wide">
+  <label><span>Заголовок</span><input name="title" value="@n.Title" maxlength="160" required></label>
+  <label><span>Текст</span><textarea name="body" style="min-height:260px" required>@n.Body</textarea></label>
+  <label class="check"><input type="checkbox" name="published" value="true" checked="@n.Published"> Опубликовать</label>
+  <div><button class="btn btn-primary" type="submit">Сохранить</button></div>
+</form>
+@if (!Model.IsNew)
+{
+  <form method="post" asp-page-handler="Delete" style="margin-top:16px" onsubmit="return confirm('Удалить новость?')">
+    <input type="hidden" name="id" value="@n.Id"><button class="btn btn-danger" type="submit">Удалить</button></form>
+}

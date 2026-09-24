@@ -1,0 +1,16 @@
+@model Protocol
+@* Read-only protocol: items with grades, result and comment (training center and exam report). *@
+<div class="items">
+  @foreach (var i in Model.Items)
+  {
+    <div class="item">
+      <div><h3>@i.Title</h3>@if (i.Description.Length > 0) { <p>@i.Description</p> }</div>
+      <div class="grade @(i.Grade == null ? "none" : i.Grade < ProtocolService.PassGrade ? "low" : "")">@(i.Grade?.ToString() ?? "—")</div>
+    </div>
+  }
+</div>
+<div class="summary" style="margin-top:14px">
+  <span class="result @Model.Status">@(Model.IsOpen ? "В ПРОЦЕССЕ" : Model.Status == "passed" ? "СДАЛ" : "НЕ СДАЛ")</span>
+  @if (!Model.IsOpen) { <span>Общая оценка <b class="mono">@ProtocolService.Score(Model.Score)</b></span> }
+</div>
+@if (Model.Comment.Length > 0) { <h3 style="margin-top:18px">Комментарий</h3><p class="pre">@Model.Comment</p> }

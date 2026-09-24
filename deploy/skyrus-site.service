@@ -1,0 +1,20 @@
+# /etc/systemd/system/skyrus-site.service
+[Unit]
+Description=SkyRUS division site
+After=network.target skynetwork-site.service
+
+[Service]
+User=skyrus
+WorkingDirectory=/opt/skyrus/site
+ExecStart=/usr/bin/dotnet /opt/skyrus/site/SkyRus.Site.dll
+Environment=ASPNETCORE_ENVIRONMENT=Production
+Environment=Urls=http://127.0.0.1:8100
+Environment=Site__Database=/var/lib/skyrus/skyrus.db
+Environment=Site__BehindProxy=true
+# Network address, division API key, administrators, public address (written by install.sh).
+EnvironmentFile=/etc/skyrus/site.env
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

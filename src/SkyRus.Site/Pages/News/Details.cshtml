@@ -1,0 +1,9 @@
+@page "/news/{id:long}"
+@model SkyRus.Site.Pages.News.DetailsModel
+@{ var n = Model.Post; ViewData["Title"] = n.Title; }
+<div class="wrap page" style="max-width:760px">
+  <p><a href="/news">← Новости</a></p>
+  <div class="muted small">@Format.Date(n.Created) · @n.AuthorName @if (!n.Published) { <span class="badge warn">черновик</span> }</div>
+  <h1 style="margin-top:6px">@n.Title</h1>
+  <div class="pre">@n.Body</div>
+</div>

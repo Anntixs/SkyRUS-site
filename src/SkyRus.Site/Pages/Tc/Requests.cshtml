@@ -1,0 +1,37 @@
+@page "/tc/requests"
+@model SkyRus.Site.Pages.Tc.RequestsModel
+@{
+    ViewData["Title"] = "Заявки на обучение";
+    string Url(long? fir, bool archive) => "/tc/requests?" + (fir != null ? $"fir={fir}&" : "") + (archive ? "archive=1" : "");
+}
+<div class="head"><h1>Заявки на обучение</h1>
+  <div class="row">
+    <a class="btn btn-sm @(Model.Archive ? "" : "btn-primary")" href="@Url(Model.FirId, false)">Открытые</a>
+    <a class="btn btn-sm @(Model.Archive ? "btn-primary" : "")" href="@Url(Model.FirId, true)">Архив</a>
+  </div>
+</div>
+<div class="chips">
+  <a class="chip @(Model.FirId == null ? "on" : "")" href="@Url(null, Model.Archive)">Все РПИ</a>
+  @foreach (var f in Model.Firs)
+  {
+    <a class="chip @(Model.FirId == f.Id ? "on" : "")" href="@Url(f.Id, Model.Archive)">@f.Name @if (f.OpenRequests > 0) { <b>@f.OpenRequests</b> }</a>
+  }
+</div>
+@if (Model.List.Count == 0) { <div class="empty">@(Model.Archive ? "В архиве пусто." : "Открытых заявок нет.")</div> }
+else
+{
+  <div class="table-wrap"><table>
+    <thead><tr><th>№</th><th>CID</th><th>Имя</th><th>Рейтинг</th><th>РПИ</th><th>Аэродром</th><th>Дата</th><th>Статус</th></tr></thead>
+    <tbody>
+    @foreach (var r in Model.List)
+    {
+      <tr class="clickable" onclick="location.href='/tc/requests/@r.Id'">
+        <td><a href="/tc/requests/@r.Id">@r.Id</a></td><td class="mono">@r.Cid</td><td>@r.Name</td><td><span class="rating">@r.Rating</span></td>
+        <td>@r.FirName</td><td class="mono">@r.Airport</td><td>@Format.Utc(r.Created)</td>
+        <td><span class="badge @(r.Status == "accepted" ? "ok" : r.Status == "declined" ? "danger" : "warn")">@RequestStatuses.Title(r.Status)</span>
+          @if (r.HandledByName.Length > 0) { <div class="small muted">@r.HandledByName</div> }</td>
+      </tr>
+    }
+    </tbody>
+  </table></div>
+}

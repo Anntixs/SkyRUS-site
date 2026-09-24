@@ -1,0 +1,26 @@
+@inject TrainingService Training
+@{
+    Layout = "_Layout";
+    string path = Context.Request.Path.Value ?? "";
+    string A(string p) => (p == "/tc" ? path.Equals(p, StringComparison.OrdinalIgnoreCase) : path.StartsWith(p, StringComparison.OrdinalIgnoreCase)) ? "active" : "";
+    int open = Training.OpenRequests();
+}
+<div class="role-bar"><div class="wrap"><b>Учебный центр SkyRUS</b><span>· @Me.User!.Name, @Me.RoleTitle</span></div></div>
+<div class="wrap page tc">
+  <nav class="tc-side" aria-label="Учебный центр">
+    <div class="side-title">Учебный центр</div>
+    <a href="/tc" class="@A("/tc")">Обзор</a>
+    <a href="/tc/requests" class="@A("/tc/requests")">Заявки @if (open > 0) { <span class="count">@open</span> }</a>
+    <a href="/tc/students" class="@A("/tc/students")">Студенты</a>
+    @if (Me.IsAdmin)
+    {
+      <div class="side-title">Управление</div>
+      <a href="/admin/staff" class="@A("/admin/staff")">Сотрудники</a>
+      <a href="/admin/templates" class="@A("/admin/templates")">Виды аттестаций</a>
+      <a href="/admin/regions" class="@A("/admin/regions")">Регионы</a>
+      <a href="/admin/news" class="@A("/admin/news")">Новости</a>
+      <a href="/admin/documents" class="@A("/admin/documents")">Документы</a>
+    }
+  </nav>
+  <div>@RenderBody()</div>
+</div>

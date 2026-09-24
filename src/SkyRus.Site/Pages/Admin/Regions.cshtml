@@ -1,0 +1,45 @@
+@page "/admin/regions"
+@model SkyRus.Site.Pages.Admin.RegionsModel
+@{ ViewData["Title"] = "Регионы"; }
+<h1>Регионы</h1>
+@if (Model.Message != null) { <div class="alert ok">@Model.Message</div> }
+@if (Model.Error != null) { <div class="alert error">@Model.Error</div> }
+<div class="grid">
+  @foreach (var f in Model.Firs)
+  {
+    <details class="card">
+      <summary style="cursor:pointer"><b>@f.Name</b> <span class="muted mono">@f.Code</span> <span class="muted small">· @string.Join(", ", f.Airports.Select(a => a.Icao))</span></summary>
+      <form method="post" asp-page-handler="Fir" class="form wide" style="margin-top:14px">
+        <input type="hidden" name="id" value="@f.Id">
+        <div class="row">
+          <label style="max-width:140px"><span>Код</span><input name="code" value="@f.Code" maxlength="4" required></label>
+          <label><span>Название</span><input name="name" value="@f.Name" maxlength="60" required></label>
+        </div>
+        <label><span>Описание (на странице региона)</span><textarea name="description" style="min-height:70px">@f.Description</textarea></label>
+        <div><button class="btn" type="submit">Сохранить РПИ</button></div>
+      </form>
+      <div class="table-wrap" style="margin-top:14px"><table>
+        <tbody>
+        @foreach (var a in f.Airports)
+        {
+          <tr><td class="mono">@a.Icao</td><td>@a.Name</td>
+            <td class="num"><form method="post" asp-page-handler="RemoveAirport"><input type="hidden" name="icao" value="@a.Icao"><button class="btn btn-sm btn-danger" type="submit">Удалить</button></form></td></tr>
+        }
+        </tbody>
+      </table></div>
+      <form method="post" asp-page-handler="Airport" class="row" style="margin-top:12px">
+        <input type="hidden" name="firId" value="@f.Id">
+        <label style="max-width:140px"><span>ICAO</span><input name="icao" maxlength="4" required></label>
+        <label><span>Название аэродрома</span><input name="name" maxlength="80" required></label>
+        <button class="btn" type="submit">Добавить аэродром</button>
+      </form>
+    </details>
+  }
+</div>
+<h2>Новый РПИ</h2>
+<form method="post" asp-page-handler="Fir" class="card row">
+  <label style="max-width:140px"><span>Код</span><input name="code" maxlength="4" required placeholder="UUWV"></label>
+  <label><span>Название</span><input name="name" maxlength="60" required></label>
+  <input type="hidden" name="description" value="">
+  <button class="btn btn-primary" type="submit">Добавить</button>
+</form>

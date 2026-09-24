@@ -1,0 +1,44 @@
+@page "/tc/students"
+@model SkyRus.Site.Pages.Tc.StudentsModel
+@{
+    ViewData["Title"] = "Студенты";
+    string Url(long? fir) => "/tc/students" + (fir != null ? $"?fir={fir}" : "") + (Model.Query.Length > 0 ? (fir != null ? "&" : "?") + "q=" + Uri.EscapeDataString(Model.Query) : "");
+}
+<div class="head"><h1>Студенты</h1>
+  <form method="get" class="row">
+    @if (Model.FirId != null) { <input type="hidden" name="fir" value="@Model.FirId"> }
+    <input name="q" value="@Model.Query" placeholder="CID или имя" style="width:220px">
+    <button class="btn" type="submit">Найти</button>
+  </form>
+</div>
+@if (Model.Error != null) { <div class="alert error">@Model.Error</div> }
+<div class="chips">
+  <a class="chip @(Model.FirId == null ? "on" : "")" href="@Url(null)">Все РПИ</a>
+  @foreach (var f in Model.Firs.Where(f => f.Students > 0))
+  {
+    <a class="chip @(Model.FirId == f.Id ? "on" : "")" href="@Url(f.Id)">@f.Name <b>@f.Students</b></a>
+  }
+</div>
+@if (Model.List.Count == 0) { <div class="empty">Студентов не найдено.</div> }
+else
+{
+  <div class="table-wrap"><table>
+    <thead><tr><th>CID</th><th>Рейтинг</th><th>Имя</th><th>РПИ</th><th>Последнее изменение</th><th>Текущий статус</th><th class="num">Допуски</th></tr></thead>
+    <tbody>
+    @foreach (var s in Model.List)
+    {
+      <tr class="clickable" onclick="location.href='/tc/students/@s.Cid'">
+        <td class="mono"><a href="/tc/students/@s.Cid">@s.Cid</a></td><td><span class="rating">@s.Rating</span></td><td>@s.Name</td>
+        <td>@(s.FirName.Length > 0 ? s.FirName : "—") <span class="muted mono small">@s.Airport</span></td>
+        <td>@Format.Utc(s.Updated)</td>
+        <td>@if (s.LastProtocol.Length > 0) { <span class="result @s.LastProtocolStatus">@(s.LastProtocolStatus == "open" ? "идёт" : s.LastProtocolStatus == "passed" ? "сдал" : "не сдал")</span> <span class="small">@s.LastProtocol</span> }</td>
+        <td class="num">@s.Permits</td>
+      </tr>
+    }
+    </tbody>
+  </table></div>
+}
+<form method="post" asp-page-handler="Open" class="row" style="margin-top:20px">
+  <label style="max-width:240px"><span>Открыть карточку по CID</span><input name="cid" inputmode="numeric" required></label>
+  <button class="btn" type="submit">Открыть</button>
+</form>

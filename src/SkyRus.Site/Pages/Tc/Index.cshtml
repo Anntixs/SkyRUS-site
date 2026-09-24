@@ -1,0 +1,38 @@
+@page "/tc"
+@model SkyRus.Site.Pages.Tc.IndexModel
+@{ ViewData["Title"] = "Учебный центр"; }
+<h1>Обзор</h1>
+<div class="grid three" style="margin-bottom:24px">
+  <div class="stat"><b>@Model.Firs.Sum(f => f.OpenRequests)</b><span>заявок ждут ответа</span></div>
+  <div class="stat"><b>@Model.Firs.Sum(f => f.Students)</b><span>студентов</span></div>
+  <div class="stat"><b>@Model.Firs.Count(f => f.Students > 0)</b><span>РПИ с активным обучением</span></div>
+</div>
+<div class="grid two">
+  <div>
+    <h2 style="margin-top:0">По РПИ</h2>
+    <div class="table-wrap"><table>
+      <thead><tr><th>РПИ</th><th class="num">Заявки</th><th class="num">Студенты</th></tr></thead>
+      <tbody>
+      @foreach (var f in Model.Firs)
+      {
+        <tr><td>@f.Name <span class="muted mono small">@f.Code</span></td>
+            <td class="num">@if (f.OpenRequests > 0) { <a href="/tc/requests?fir=@f.Id"><span class="count">@f.OpenRequests</span></a> } else { <span class="muted">0</span> }</td>
+            <td class="num"><a href="/tc/students?fir=@f.Id">@f.Students</a></td></tr>
+      }
+      </tbody>
+    </table></div>
+  </div>
+  <div>
+    <h2 style="margin-top:0">Последние изменения</h2>
+    @if (Model.Recent.Count == 0) { <div class="empty">Студентов пока нет.</div> }
+    <div class="grid" style="gap:8px">
+      @foreach (var s in Model.Recent)
+      {
+        <a class="card link-card" style="padding:12px 16px" href="/tc/students/@s.Cid">
+          <b>@s.Name</b> <span class="rating">@s.Rating</span> <span class="muted small">@s.FirName · @Format.Utc(s.Updated)</span>
+          @if (s.LastProtocol.Length > 0) { <div class="small muted">@s.LastProtocol</div> }
+        </a>
+      }
+    </div>
+  </div>
+</div>

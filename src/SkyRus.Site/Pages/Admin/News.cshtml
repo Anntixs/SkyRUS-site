@@ -1,0 +1,12 @@
+@page "/admin/news"
+@model SkyRus.Site.Pages.Admin.NewsModel
+@{ ViewData["Title"] = "Новости"; }
+<div class="head"><h1>Новости</h1><a class="btn btn-primary" href="/admin/news/new">Написать</a></div>
+@if (Model.List.Count == 0) { <div class="empty">Новостей пока нет.</div> }
+<div class="grid" style="gap:8px">
+  @foreach (var n in Model.List)
+  {
+    <a class="card link-card" style="padding:14px 18px" href="/admin/news/@n.Id"><b>@n.Title</b> @if (!n.Published) { <span class="badge warn">черновик</span> }
+      <div class="muted small">@Format.Utc(n.Created) · @n.AuthorName</div></a>
+  }
+</div>

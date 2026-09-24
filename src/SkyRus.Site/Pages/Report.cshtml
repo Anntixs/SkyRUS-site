@@ -1,0 +1,14 @@
+@page "/report/{id:long}"
+@model ReportModel
+@{ var p = Model.Protocol; ViewData["Title"] = "Отчёт об аттестации №" + p.Id; }
+<div class="wrap page" style="max-width:900px">
+  <div class="muted small">SkyRUS · отчёт об аттестации №@p.Id</div>
+  <h1 style="margin-top:6px">@p.Title</h1>
+  <dl class="kv" style="margin-bottom:20px">
+    <dt>Студент</dt><dd>@p.StudentName (<span class="mono">@p.Cid</span>)</dd>
+    <dt>Экзаменатор</dt><dd>@(p.ClosedByName.Length > 0 ? p.ClosedByName : p.CreatedByName)</dd>
+    <dt>Дата</dt><dd>@(p.Closed is { } c ? Format.Utc(c) : "")</dd>
+    @if (p.IsExam) { <dt>Рейтинг</dt><dd><span class="rating">@p.TargetRating</span></dd> }
+  </dl>
+  <partial name="_ProtocolView" model="p" />
+</div>

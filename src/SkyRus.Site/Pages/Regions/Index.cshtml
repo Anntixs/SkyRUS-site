@@ -1,0 +1,17 @@
+@page "/regions"
+@inject SiteContent Site
+@{ ViewData["Title"] = "Регионы"; var firs = Site.Firs(); }
+<div class="wrap page">
+  <h1>Регионы</h1>
+  <p class="muted" style="max-width:720px">Районы полётной информации (РПИ) дивизиона. У каждого студента есть РПИ и аэродром приписки: там он учится и сдаёт экзамены.</p>
+  <div class="grid three">
+    @foreach (var f in firs)
+    {
+      <a class="card link-card" href="/regions/@f.Code">
+        <div class="head" style="margin-bottom:8px"><h3 style="margin:0">@f.Name</h3><span class="badge blue mono">@f.Code</span></div>
+        <div class="muted small">@string.Join(" · ", f.Airports.Select(a => a.Icao))</div>
+        <div class="small" style="margin-top:10px">@Format.Plural(f.Students, "студент", "студента", "студентов")</div>
+      </a>
+    }
+  </div>
+</div>

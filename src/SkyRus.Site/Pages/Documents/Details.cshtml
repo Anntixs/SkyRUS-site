@@ -1,0 +1,10 @@
+@page "/documents/{id:long}"
+@model SkyRus.Site.Pages.Documents.DetailsModel
+@{ var d = Model.Doc; ViewData["Title"] = d.Title; }
+<div class="wrap page" style="max-width:780px">
+  <p><a href="/documents">← Документы</a></p>
+  <div class="muted small">@d.Category · обновлён @Format.Date(d.Updated)</div>
+  <h1 style="margin-top:6px">@d.Title</h1>
+  <div class="pre">@d.Body</div>
+  @if (d.Url.Length > 0) { <p style="margin-top:20px"><a class="btn btn-primary" href="@d.Url" target="_blank" rel="noopener">Открыть файл</a></p> }
+</div>
