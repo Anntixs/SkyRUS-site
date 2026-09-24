@@ -8,9 +8,8 @@ namespace SkyRus.Site.Network;
 
 public sealed record NetworkMember(long Cid, string Name, string Email, string Rating, string PilotRating);
 
-public enum AuthOutcome { Ok, WrongPassword, Suspended, TooManyAttempts, Unavailable }
-
-public sealed record AuthResult(AuthOutcome Outcome, NetworkMember? Member = null);
+/// <summary>The member signed in through SkyNetwork Connect, or why not.</summary>
+public sealed record SignInResult(NetworkMember? Member, string? Error);
 
 public sealed record RatingRequestPayload(
     long Cid, string Track, string Rating, long ExaminerCid, string ExaminerName, string ExamDate,
@@ -19,10 +18,18 @@ public sealed record RatingRequestPayload(
 /// <summary>A rating request as the network sees it, or why it could not be sent / read.</summary>
 public sealed record RatingRequestState(long? Id, string Status, string ReviewComment, string? Error);
 
-/// <summary>The network's division API (/api/division/v1), authenticated with the division key.</summary>
+/// <summary>
+/// The network: SkyNetwork Connect for sign-in (/oauth/…, with the client ID and secret) and the
+/// division API (/api/division/v1, with the division key) for members and rating requests.
+/// </summary>
 public interface INetworkClient
 {
-    Task<AuthResult> AuthenticateAsync(long cid, string password, CancellationToken ct = default);
+    /// <summary>Where to send the member to sign in (the network's /oauth/authorize).</summary>
+    string AuthorizeUrl(string redirectUri, string state, string codeChallenge);
+
+    /// <summary>Exchanges the code from the network for the member's profile.</summary>
+    Task<SignInResult> SignInAsync(string code, string redirectUri, string codeVerifier, CancellationToken ct = default);
+
     Task<NetworkMember?> MemberAsync(long cid, CancellationToken ct = default);
     Task<RatingRequestState> SendRatingRequestAsync(RatingRequestPayload request, CancellationToken ct = default);
     Task<RatingRequestState> RatingRequestAsync(long id, CancellationToken ct = default);
@@ -31,6 +38,7 @@ public interface INetworkClient
 public sealed class HttpNetworkClient(IHttpClientFactory factory, IOptions<SiteOptions> options, ILogger<HttpNetworkClient> log) : INetworkClient
 {
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
+    private static readonly JsonSerializerOptions Snake = new(JsonSerializerDefaults.Web) { PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower };
 
     private HttpClient? Client()
     {
@@ -49,31 +57,46 @@ public sealed class HttpNetworkClient(IHttpClientFactory factory, IOptions<SiteO
     private static NetworkMember ToMember(MemberDto m) =>
         new(m.Cid, m.Name ?? "", m.Email ?? "", m.Rating ?? "OBS", m.PilotRating ?? "");
 
-    public async Task<AuthResult> AuthenticateAsync(long cid, string password, CancellationToken ct = default)
+    private string NetworkBase => options.Value.NetworkUrl.TrimEnd('/');
+
+    public string AuthorizeUrl(string redirectUri, string state, string codeChallenge) =>
+        $"{NetworkBase}/oauth/authorize?response_type=code&client_id={Uri.EscapeDataString(options.Value.ConnectClientId)}" +
+        $"&redirect_uri={Uri.EscapeDataString(redirectUri)}&scope={Uri.EscapeDataString("profile email")}" +
+        $"&state={Uri.EscapeDataString(state)}&code_challenge={codeChallenge}&code_challenge_method=S256";
+
+    private sealed record TokenDto(string? AccessToken);
+    private sealed record UserDto(long Cid, string? Name, string? Email, string? Rating, string? PilotRating);
+
+    public async Task<SignInResult> SignInAsync(string code, string redirectUri, string codeVerifier, CancellationToken ct = default)
     {
-        if (Client() is not { } c) return new(AuthOutcome.Unavailable);
+        var o = options.Value;
+        if (o.NetworkUrl.Length == 0 || o.ConnectClientId.Length == 0 || o.ConnectClientSecret.Length == 0)
+            return new(null, "Вход через SkyNetwork не настроен (Site:NetworkUrl, Site:ConnectClientId, Site:ConnectClientSecret)");
         try
         {
-            using var r = await c.PostAsJsonAsync("auth", new { cid, password }, Json, ct);
-            return r.StatusCode switch
+            var http = factory.CreateClient("network");
+            using var tokenResponse = await http.PostAsync($"{NetworkBase}/oauth/token", new FormUrlEncodedContent(new Dictionary<string, string>
             {
-                HttpStatusCode.OK => new(AuthOutcome.Ok, ToMember((await r.Content.ReadFromJsonAsync<MemberDto>(Json, ct))!)),
-                HttpStatusCode.Unauthorized when (await Error(r, ct)) == "invalid_credentials" => new(AuthOutcome.WrongPassword),
-                HttpStatusCode.Forbidden => new(AuthOutcome.Suspended),
-                HttpStatusCode.TooManyRequests => new(AuthOutcome.TooManyAttempts),
-                _ => Fail(r.StatusCode),
-            };
+                ["grant_type"] = "authorization_code", ["code"] = code, ["redirect_uri"] = redirectUri,
+                ["client_id"] = o.ConnectClientId, ["client_secret"] = o.ConnectClientSecret, ["code_verifier"] = codeVerifier,
+            }), ct);
+            if (!tokenResponse.IsSuccessStatusCode)
+            {
+                log.LogWarning("Connect token: HTTP {Code} {Body}", (int)tokenResponse.StatusCode, await tokenResponse.Content.ReadAsStringAsync(ct));
+                return new(null, "SkyNetwork не подтвердил вход, попробуйте ещё раз");
+            }
+            var token = await tokenResponse.Content.ReadFromJsonAsync<TokenDto>(Snake, ct);
+            using var userRequest = new HttpRequestMessage(HttpMethod.Get, $"{NetworkBase}/oauth/userinfo");
+            userRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token?.AccessToken);
+            using var userResponse = await http.SendAsync(userRequest, ct);
+            if (!userResponse.IsSuccessStatusCode) return new(null, "SkyNetwork не выдал данные аккаунта (возможно, аккаунт заблокирован)");
+            var u = (await userResponse.Content.ReadFromJsonAsync<UserDto>(Json, ct))!;
+            return new(new NetworkMember(u.Cid, u.Name ?? "", u.Email ?? "", u.Rating ?? "OBS", u.PilotRating ?? ""), null);
         }
         catch (Exception e) when (e is HttpRequestException or TaskCanceledException or JsonException)
         {
-            log.LogWarning(e, "Network sign-in failed");
-            return new(AuthOutcome.Unavailable);
-        }
-
-        AuthResult Fail(HttpStatusCode code)
-        {
-            log.LogWarning("Network sign-in: HTTP {Code} (check Site:NetworkApiKey)", (int)code);
-            return new(AuthOutcome.Unavailable);
+            log.LogWarning(e, "Connect sign-in failed");
+            return new(null, "Сервер SkyNetwork недоступен, попробуйте позже");
         }
     }
 
@@ -126,11 +149,5 @@ public sealed class HttpNetworkClient(IHttpClientFactory factory, IOptions<SiteO
         {
             return new(id, "", "", "сеть недоступна: " + e.Message);
         }
-    }
-
-    private static async Task<string?> Error(HttpResponseMessage r, CancellationToken ct)
-    {
-        try { return (await r.Content.ReadFromJsonAsync<ErrorDto>(Json, ct))?.Error; }
-        catch (JsonException) { return null; }
     }
 }

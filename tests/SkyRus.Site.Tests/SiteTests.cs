@@ -25,22 +25,52 @@ public class SiteTests
     }
 
     [Fact]
-    public async Task SignIn_ThroughTheNetwork()
+    public async Task SignIn_ThroughSkyNetworkConnect()
     {
         using var site = new SiteFactory();
         site.Network.Add(25, "Petr Student", "S1");
         var c = site.Browser();
-        var bad = await c.SubmitAsync("/login", new Dictionary<string, string> { ["Cid"] = "25", ["Password"] = "wrong" }).TextAsync();
-        Assert.Contains("Неверный CID или пароль", bad);
+        // No password form: only the SkyNetwork button.
+        var login = await c.HtmlAsync("/login");
+        Assert.Contains("Войти через SkyNetwork", login);
+        Assert.DoesNotContain("type=\"password\"", login);
+
+        // The start sends the member to the network with state and a PKCE challenge.
+        var start = await c.GetAsync("/login/start?returnUrl=/permits");
+        var location = start.Headers.Location!.OriginalString;
+        Assert.StartsWith("https://network.example/oauth/authorize?", location);
+        Assert.Contains(Uri.EscapeDataString("https://skyrus.example/login/callback"), location);
+
+        // A forged callback (wrong state) is refused.
+        var q = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(new Uri(location).Query);
+        var forged = await c.GetAsync($"/login/callback?code={site.Network.IssueCode(25, q["code_challenge"]!)}&state=forged");
+        Assert.Contains("Сеанс входа устарел", await forged.Content.ReadAsStringAsync());
+
+        // The member said no on the network.
+        Assert.Equal("/login?error=access_denied", (await c.GetAsync("/login/callback?error=access_denied")).Headers.Location!.OriginalString);
+
+        // The network is down: a clear message.
         site.Network.Down = true;
-        Assert.Contains("недоступен", await c.SubmitAsync("/login", new Dictionary<string, string> { ["Cid"] = "25", ["Password"] = "password1" }).TextAsync());
+        var down = await c.SignInAsync(site, 25);
+        Assert.Contains("недоступен", await down.Content.ReadAsStringAsync());
         site.Network.Down = false;
 
-        var ok = await c.SubmitAsync("/login", new Dictionary<string, string> { ["Cid"] = "25", ["Password"] = "password1" });
-        Assert.Equal("/cabinet", ok.Headers.Location!.OriginalString);
+        var ok = await c.SignInAsync(site, 25, "/permits");
+        Assert.Equal("/permits", ok.Headers.Location!.OriginalString);
         var cabinet = await c.HtmlAsync("/cabinet");
         Assert.Contains("Petr Student", cabinet);
         Assert.Contains("S1", cabinet);
+
+        // Sign-out from the header form (with its antiforgery token).
+        var signedOut = await c.SubmitAsync("/", new Dictionary<string, string>(), "/logout");
+        Assert.Equal(HttpStatusCode.Redirect, signedOut.StatusCode);
+        Assert.Equal(HttpStatusCode.Redirect, (await c.GetAsync("/cabinet")).StatusCode);
+        await c.SignInAsync(site, 25);
+
+        // The site keeps working without the network: public pages and the signed-in session.
+        site.Network.Down = true;
+        await site.Browser().HtmlAsync("/regions");
+        await c.HtmlAsync("/cabinet");
     }
 
     [Fact]

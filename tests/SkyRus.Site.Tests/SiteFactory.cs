@@ -23,10 +23,30 @@ public sealed class FakeNetwork : INetworkClient
         return cid;
     }
 
-    public Task<AuthResult> AuthenticateAsync(long cid, string password, CancellationToken ct = default) =>
-        Task.FromResult(Down ? new AuthResult(AuthOutcome.Unavailable)
-            : Members.TryGetValue(cid, out var m) && m.Password == password ? new AuthResult(AuthOutcome.Ok, m.Member)
-            : new AuthResult(AuthOutcome.WrongPassword));
+    /// <summary>Codes the "network" issued after sign-in: code → (cid, PKCE challenge).</summary>
+    public ConcurrentDictionary<string, (long Cid, string Challenge)> Codes { get; } = new();
+
+    public string AuthorizeUrl(string redirectUri, string state, string codeChallenge) =>
+        $"https://network.example/oauth/authorize?client_id=skyrus&redirect_uri={Uri.EscapeDataString(redirectUri)}&state={state}&code_challenge={codeChallenge}";
+
+    /// <summary>The member signs in on the network and agrees: a code for the site.</summary>
+    public string IssueCode(long cid, string challenge)
+    {
+        var code = Guid.NewGuid().ToString("N");
+        Codes[code] = (cid, challenge);
+        return code;
+    }
+
+    public Task<SignInResult> SignInAsync(string code, string redirectUri, string codeVerifier, CancellationToken ct = default)
+    {
+        if (Down) return Task.FromResult(new SignInResult(null, "Сервер SkyNetwork недоступен"));
+        // One-time code, bound to the PKCE verifier like on the real network.
+        if (!Codes.TryRemove(code, out var c)) return Task.FromResult(new SignInResult(null, "SkyNetwork не подтвердил вход"));
+        var challenge = Convert.ToBase64String(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.ASCII.GetBytes(codeVerifier)))
+            .TrimEnd('=').Replace('+', '-').Replace('/', '_');
+        if (challenge != c.Challenge || !redirectUri.EndsWith("/login/callback")) return Task.FromResult(new SignInResult(null, "PKCE"));
+        return Task.FromResult(Members.TryGetValue(c.Cid, out var m) ? new SignInResult(m.Member, null) : new SignInResult(null, "нет такого"));
+    }
 
     public Task<NetworkMember?> MemberAsync(long cid, CancellationToken ct = default) =>
         Task.FromResult(!Down && Members.TryGetValue(cid, out var m) ? m.Member : null);
@@ -82,7 +102,7 @@ public sealed class SiteFactory : WebApplicationFactory<Program>
     {
         if (!Network.Members.ContainsKey(cid)) Network.Add(cid, name.Length > 0 ? name : $"Member {cid}", rating);
         var c = Browser();
-        var r = await c.SubmitAsync("/login", new Dictionary<string, string> { ["Cid"] = cid.ToString(), ["Password"] = Network.Members[cid].Password });
+        var r = await c.SignInAsync(this, cid);
         Assert.Equal(HttpStatusCode.Redirect, r.StatusCode);
         return c;
     }
@@ -98,6 +118,16 @@ public sealed class SiteFactory : WebApplicationFactory<Program>
 
 public static class BrowserExtensions
 {
+    /// <summary>"Войти через SkyNetwork": off to the network, sign in there, back with a code.</summary>
+    public static async Task<HttpResponseMessage> SignInAsync(this HttpClient c, SiteFactory site, long cid, string returnUrl = "")
+    {
+        var start = await c.GetAsync("/login/start" + (returnUrl.Length > 0 ? "?returnUrl=" + Uri.EscapeDataString(returnUrl) : ""));
+        Assert.Equal(HttpStatusCode.Redirect, start.StatusCode);
+        var q = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(new Uri(start.Headers.Location!.OriginalString).Query);
+        var code = site.Network.IssueCode(cid, q["code_challenge"]!);
+        return await c.GetAsync($"/login/callback?code={code}&state={Uri.EscapeDataString(q["state"]!)}");
+    }
+
     private static readonly Regex Token = new("name=\"__RequestVerificationToken\" type=\"hidden\" value=\"([^\"]+)\"");
 
     /// <summary>GETs the page, then posts the fields with the page's antiforgery token.</summary>

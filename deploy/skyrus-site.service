@@ -11,7 +11,7 @@ Environment=ASPNETCORE_ENVIRONMENT=Production
 Environment=Urls=http://127.0.0.1:8100
 Environment=Site__Database=/var/lib/skyrus/skyrus.db
 Environment=Site__BehindProxy=true
-# Network address, division API key, administrators, public address (written by install.sh).
+# Network address, sign-in client, division API key, administrators, public address (written by install.sh).
 EnvironmentFile=/etc/skyrus/site.env
 Restart=always
 RestartSec=5

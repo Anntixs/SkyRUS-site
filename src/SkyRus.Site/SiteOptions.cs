@@ -9,7 +9,11 @@ public sealed class SiteOptions
     /// <summary>The network website, e.g. https://sky.network.npzy2.us/ (division API lives under /api/division/v1).</summary>
     public string NetworkUrl { get; set; } = "";
 
-    /// <summary>The division's API key issued by a network administrator (skd_…).</summary>
+    /// <summary>SkyNetwork Connect (sign-in through the network): the client ID and secret issued by a network administrator.</summary>
+    public string ConnectClientId { get; set; } = "";
+    public string ConnectClientSecret { get; set; } = "";
+
+    /// <summary>The division's API key issued by a network administrator (skd_…), for rating requests.</summary>
     public string NetworkApiKey { get; set; } = "";
 
     /// <summary>Public address of this site, for links in rating requests (exam reports).</summary>
