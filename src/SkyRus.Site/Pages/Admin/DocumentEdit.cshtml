@@ -1,0 +1,21 @@
+@page "/admin/documents/{id}"
+@model SkyRus.Site.Pages.Admin.DocumentEditModel
+@{ var d = Model.Doc; ViewData["Title"] = Model.IsNew ? "Новый документ" : d.Title; }
+<p><a href="/admin/documents">← Документы</a></p>
+<h1>@(Model.IsNew ? "Новый документ" : "Правка документа")</h1>
+@if (Model.Error != null) { <div class="alert error">@Model.Error</div> }
+<form method="post" class="card form wide">
+  <div class="row">
+    <label><span>Название</span><input name="title" value="@d.Title" maxlength="160" required></label>
+    <label><span>Раздел</span><input name="category" value="@d.Category" maxlength="60" placeholder="Учебный центр"></label>
+    <label style="max-width:120px"><span>Порядок</span><input name="sort" type="number" value="@d.Sort"></label>
+  </div>
+  <label><span>Текст</span><textarea name="body" style="min-height:260px">@d.Body</textarea></label>
+  <label><span>Ссылка на файл (PDF, Google Docs и т. п.)</span><input name="url" value="@d.Url" placeholder="https://"></label>
+  <div><button class="btn btn-primary" type="submit">Сохранить</button></div>
+</form>
+@if (!Model.IsNew)
+{
+  <form method="post" asp-page-handler="Delete" style="margin-top:16px" onsubmit="return confirm('Удалить документ?')">
+    <input type="hidden" name="id" value="@d.Id"><button class="btn btn-danger" type="submit">Удалить</button></form>
+}

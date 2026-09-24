@@ -1,0 +1,13 @@
+@page "/login"
+@model LoginModel
+@{ ViewData["Title"] = "Вход"; }
+<div class="wrap page" style="max-width:460px">
+  <h1>Вход</h1>
+  <p class="muted">Используйте CID и пароль сети SkyNetwork — те же, что для подключения к сети.</p>
+  @if (Model.Error != null) { <div class="alert error">@Model.Error</div> }
+  <form method="post" class="card form">
+    <label><span>CID</span><input name="Cid" value="@Model.Cid" inputmode="numeric" autocomplete="username" required autofocus></label>
+    <label><span>Пароль</span><input name="Password" type="password" autocomplete="current-password" required></label>
+    <button class="btn btn-primary" type="submit">Войти</button>
+  </form>
+</div>

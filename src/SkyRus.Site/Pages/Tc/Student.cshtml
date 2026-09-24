@@ -1,0 +1,126 @@
+@page "/tc/students/{cid:long}"
+@model SkyRus.Site.Pages.Tc.StudentModel
+@{ var s = Model.Student; ViewData["Title"] = s.Name; }
+<p><a href="/tc/students">← Студенты</a></p>
+<div class="profile">
+  <span class="avatar">@Format.Initials(s.Name.Length > 0 ? s.Name : "?")</span>
+  <div style="flex:1">
+    <h1 style="margin:0">@s.Name <span class="muted mono" style="font-size:18px">@s.Cid</span></h1>
+    <div class="muted">Текущий рейтинг <span class="rating">@s.Rating</span>
+      @if (Model.Member?.PilotRating is { Length: > 0 } pr && pr != "P0") { <span> · пилотский @pr</span> }
+      @if (Model.Member?.Email is { Length: > 0 } email) { <span> · @email</span> }</div>
+  </div>
+  <form method="post" asp-page-handler="Refresh"><button class="btn btn-sm" type="submit" title="Обновить имя и рейтинг из SkyNetwork">Обновить из сети</button></form>
+</div>
+@if (Model.Message != null) { <div class="alert ok">@Model.Message</div> }
+@if (Model.Error != null) { <div class="alert error">@Model.Error</div> }
+
+<div class="grid side">
+  <div>
+    <div class="head"><h2 style="margin:0">Аттестации</h2>
+      @if (Model.Templates.Count > 0)
+      {
+        <form method="post" asp-page-handler="Protocol" class="row">
+          <select name="templateId" required style="width:auto;max-width:320px">
+            <option value="">Новый протокол…</option>
+            @foreach (var g in Model.Templates.GroupBy(t => t.Kind))
+            {
+              <optgroup label="@Kinds.Title(g.Key)">@foreach (var t in g) { <option value="@t.Id">@t.Title</option> }</optgroup>
+            }
+          </select>
+          <button class="btn btn-primary" type="submit">Создать</button>
+        </form>
+      }
+    </div>
+    @if (Model.Protocols.Count == 0) { <div class="empty">Аттестаций пока не было.</div> }
+    else
+    {
+      <div class="table-wrap"><table>
+        <thead><tr><th>№</th><th>Название</th><th>Создан</th><th>Закрыт</th><th>Результат</th></tr></thead>
+        <tbody>
+        @foreach (var p in Model.Protocols)
+        {
+          <tr class="clickable" onclick="location.href='/tc/protocols/@p.Id'">
+            <td><a href="/tc/protocols/@p.Id">@p.Id</a></td>
+            <td>@p.Title @if (p.IsExam) { <span class="badge accent">@p.TargetRating</span> }</td>
+            <td>@Format.Utc(p.Created)<div class="small muted">@p.CreatedByName</div></td>
+            <td>@if (p.Closed is { } c) { @Format.Utc(c)<div class="small muted">@p.ClosedByName</div> } else { <span class="muted">в процессе</span> }</td>
+            <td>@if (p.IsOpen) { <span class="result open">—</span> } else { <span class="result @p.Status">@(p.Status == "passed" ? "СДАЛ" : "НЕ СДАЛ")</span> <span class="mono">@ProtocolService.Score(p.Score)</span> }
+                @if (p.IsExam && p.Status == "passed") { <div class="small"><span class="badge @(p.RrStatus == "approved" ? "ok" : p.RrStatus == "declined" ? "danger" : "warn")">@RatingRequestStatuses.Title(p.RrStatus)</span></div> }</td>
+          </tr>
+        }
+        </tbody>
+      </table></div>
+    }
+
+    <h2>Журнал</h2>
+    <form method="post" asp-page-handler="Comment" class="form wide" style="margin-bottom:16px">
+      <textarea name="body" maxlength="4000" placeholder="Комментарий к студенту: как прошло занятие, что подтянуть" style="min-height:80px" required></textarea>
+      <div><button class="btn btn-primary" type="submit">Добавить комментарий</button></div>
+    </form>
+    @if (Model.Log.Count == 0) { <div class="empty">Записей пока нет.</div> }
+    <ul class="timeline">
+      @foreach (var c in Model.Log)
+      {
+        <li class="@(c.AuthorCid == 0 ? "system" : "")">
+          <div class="meta">@Format.Utc(c.Created) · @(c.AuthorCid == 0 ? "система" : c.AuthorName)</div>
+          <div class="pre">@c.Body</div>
+        </li>
+      }
+    </ul>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <h3>РПИ и аэродром приписки</h3>
+      <form method="post" asp-page-handler="Home" class="form">
+        <select name="firId" required>
+          @foreach (var f in Model.Firs) { <option value="@f.Id" selected="@(f.Id == s.FirId)">@f.Name (@f.Code)</option> }
+        </select>
+        <select name="airport">
+          <option value="">Без аэродрома</option>
+          @foreach (var f in Model.Firs) { <optgroup label="@f.Name">@foreach (var a in f.Airports) { <option value="@a.Icao" selected="@(a.Icao == s.Airport)">@a.Icao — @a.Name</option> }</optgroup> }
+        </select>
+        <button class="btn" type="submit">Сохранить</button>
+      </form>
+    </div>
+
+    <div class="card">
+      <h3>Допуски</h3>
+      @if (!Model.Permits.Any(p => p.Active)) { <p class="muted">Действующих допусков нет.</p> }
+      @foreach (var p in Model.Permits)
+      {
+        <div class="row" style="justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line);@(p.Active ? "" : "opacity:.55")">
+          <div><span class="mono"><b>@p.Position</b></span> @if (!p.Active) { <span class="badge">отозван</span> }
+            <div class="small muted">выдан @Format.Short(p.Issued) · @p.IssuedByName@(p.Note.Length > 0 ? " · " + p.Note : "")</div></div>
+          @if (p.Active && Model.Me.IsInstructor)
+          {
+            <form method="post" asp-page-handler="Revoke" onsubmit="return confirm('Отозвать допуск @p.Position?')">
+              <input type="hidden" name="permitId" value="@p.Id"><button class="btn btn-sm btn-danger" type="submit">Отозвать</button>
+            </form>
+          }
+        </div>
+      }
+      @if (Model.Me.IsInstructor)
+      {
+        <form method="post" asp-page-handler="Permit" class="form" style="margin-top:12px">
+          <input name="position" placeholder="UUEE_TWR" required style="text-transform:uppercase">
+          <input name="note" placeholder="Примечание (необязательно)" maxlength="300">
+          <button class="btn btn-primary" type="submit">Выдать допуск</button>
+        </form>
+      }
+    </div>
+
+    @if (Model.Requests.Count > 0)
+    {
+      <div class="card">
+        <h3>Заявки</h3>
+        @foreach (var r in Model.Requests)
+        {
+          <div style="padding:4px 0"><a href="/tc/requests/@r.Id">№@r.Id</a> · @Format.Short(r.Created) · @r.FirName
+            <span class="badge @(r.Status == "accepted" ? "ok" : r.Status == "declined" ? "danger" : "warn")">@RequestStatuses.Title(r.Status)</span></div>
+        }
+      </div>
+    }
+  </div>
+</div>

@@ -1,0 +1,100 @@
+@page "/cabinet"
+@model CabinetModel
+@{ ViewData["Title"] = "Личный кабинет"; var u = Me.User!; }
+<div class="wrap page">
+  <div class="profile">
+    <span class="avatar">@Format.Initials(u.Name)</span>
+    <div>
+      <h1 style="margin:0">@u.Name</h1>
+      <div class="muted">CID <span class="mono">@u.Cid</span> · рейтинг <span class="rating">@u.Rating</span>
+        @if (u.PilotRating is { Length: > 0 } and not "P0") { <span> · пилотский @u.PilotRating</span> }
+        @if (Me.IsStaff) { <span> · <span class="badge accent">@Me.RoleTitle</span></span> }</div>
+    </div>
+  </div>
+  @if (Model.Message != null) { <div class="alert ok">@Model.Message</div> }
+  @if (Model.Error != null) { <div class="alert error">@Model.Error</div> }
+
+  <div class="grid side">
+    <div>
+      @if (Model.Student is { } s)
+      {
+        <div class="card" style="margin-bottom:16px">
+          <h3>Обучение</h3>
+          <dl class="kv">
+            <dt>РПИ приписки</dt><dd>@(s.FirName.Length > 0 ? s.FirName : "—")</dd>
+            <dt>Аэродром</dt><dd class="mono">@(s.Airport.Length > 0 ? s.Airport : "—")</dd>
+            <dt>Последнее изменение</dt><dd>@Format.Utc(s.Updated)</dd>
+          </dl>
+        </div>
+      }
+
+      <h2 style="margin-top:0">Заявка на обучение</h2>
+      @if (Model.HasOpenRequest)
+      {
+        <div class="alert">Ваша заявка ожидает рассмотрения. Новую можно подать после ответа.</div>
+      }
+      else
+      {
+        <form method="post" class="card form wide">
+          <div class="row">
+            <label><span>РПИ</span>
+              <select name="firId" required>
+                <option value="">Выберите РПИ</option>
+                @foreach (var f in Model.Firs) { <option value="@f.Id" selected="@(f.Id == Model.Student?.FirId)">@f.Name (@f.Code)</option> }
+              </select>
+            </label>
+            <label><span>Аэродром приписки</span>
+              <select name="airport">
+                <option value="">Любой</option>
+                @foreach (var f in Model.Firs)
+                {
+                  <optgroup label="@f.Name">@foreach (var a in f.Airports) { <option value="@a.Icao">@a.Icao — @a.Name</option> }</optgroup>
+                }
+              </select>
+            </label>
+          </div>
+          <label><span>О себе</span><textarea name="message" maxlength="2000" placeholder="Опыт в симуляторах, когда удобно заниматься, есть ли микрофон"></textarea></label>
+          <div><button class="btn btn-accent" type="submit">Подать заявку</button></div>
+        </form>
+      }
+
+      @if (Model.Requests.Count > 0)
+      {
+        <h2>Мои заявки</h2>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Дата</th><th>РПИ</th><th>Статус</th><th>Кто рассмотрел</th></tr></thead>
+          <tbody>
+          @foreach (var r in Model.Requests)
+          {
+            <tr>
+              <td>@Format.Utc(r.Created)</td><td>@r.FirName @(r.Airport.Length > 0 ? "· " + r.Airport : "")</td>
+              <td><span class="badge @(r.Status == "accepted" ? "ok" : r.Status == "declined" ? "danger" : "warn")">@RequestStatuses.Title(r.Status)</span>
+                @if (r.Reason.Length > 0) { <div class="small muted">@r.Reason</div> }</td>
+              <td>@r.HandledByName</td>
+            </tr>
+          }
+          </tbody>
+        </table></div>
+      }
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <h3>Мои допуски</h3>
+        @if (Model.Permits.Count == 0) { <p class="muted" style="margin:0">Допусков пока нет.</p> }
+        @foreach (var p in Model.Permits) { <div style="padding:6px 0"><span class="mono"><b>@p.Position</b></span> <span class="muted small">с @Format.Short(p.Issued)</span></div> }
+      </div>
+      <div class="card">
+        <h3>Экзамены на рейтинг</h3>
+        @if (Model.Exams.Count == 0) { <p class="muted" style="margin:0">Сданных экзаменов пока нет.</p> }
+        @foreach (var p in Model.Exams)
+        {
+          <div style="padding:6px 0">
+            <b>@p.TargetRating</b> · @Format.Short(p.Closed!.Value)
+            <div class="small"><span class="badge @(p.RrStatus == "approved" ? "ok" : p.RrStatus == "declined" ? "danger" : "warn")">@RatingRequestStatuses.Title(p.RrStatus)</span></div>
+          </div>
+        }
+      </div>
+    </div>
+  </div>
+</div>

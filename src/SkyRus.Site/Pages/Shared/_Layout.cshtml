@@ -1,0 +1,69 @@
+@{
+    string path = Context.Request.Path.Value ?? "/";
+    string Active(string prefix) => path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) ? "active" : "";
+    string? theme = Context.Request.Cookies["theme"] is "light" or "dark" ? Context.Request.Cookies["theme"] : null;
+    bool closed = path.StartsWith("/tc", StringComparison.OrdinalIgnoreCase) || path.StartsWith("/admin", StringComparison.OrdinalIgnoreCase)
+                  || path.StartsWith("/report", StringComparison.OrdinalIgnoreCase);
+}
+<!DOCTYPE html>
+<html lang="ru" data-theme="@theme">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>@(ViewData["Title"] is string t ? t + " — SkyRUS" : "SkyRUS — русскоязычный дивизион SkyNetwork")</title>
+  <meta name="description" content="SkyRUS — русскоязычный дивизион сети виртуальной авиации SkyNetwork: обучение диспетчеров, допуски, регионы.">
+  @if (closed) { <meta name="robots" content="noindex, nofollow"> }
+  <link rel="stylesheet" href="~/css/fonts.css" asp-append-version="true">
+  <link rel="stylesheet" href="~/css/site.css" asp-append-version="true">
+  <script src="~/js/theme.js" asp-append-version="true"></script>
+</head>
+<body>
+  <div class="tricolor" aria-hidden="true"><i></i><i></i><i></i></div>
+  <header class="top">
+    <div class="wrap top-inner">
+      <a class="brand" href="/" aria-label="SkyRUS — на главную">
+        <svg viewBox="0 0 32 32" width="30" height="30" aria-hidden="true"><rect width="32" height="32" rx="8" class="brand-bg"/><path d="M7 19.5 25 11l-6.2 12.4-3.3-4.9z" class="brand-plane"/><path d="m15.5 18.5 3.3 4.9-1.1-5.9z" class="brand-fold"/></svg>
+        <span>Sky<b>RUS</b></span>
+      </a>
+      <button class="nav-toggle" type="button" aria-label="Меню" onclick="document.body.classList.toggle('nav-open')"><span></span><span></span><span></span></button>
+      <nav class="nav" aria-label="Разделы">
+        <a href="/regions" class="@Active("/regions")">Регионы</a>
+        <a href="/news" class="@Active("/news")">Новости</a>
+        <a href="/permits" class="@Active("/permits")">Допуски</a>
+        <a href="/documents" class="@Active("/documents")">Документы</a>
+        @if (Me.IsStaff) { <a href="/tc" class="nav-tc @Active("/tc")">Учебный центр</a> }
+        @if (Me.IsAdmin) { <a href="/admin" class="@Active("/admin")">Управление</a> }
+      </nav>
+      <div class="user">
+        <button class="icon-btn" type="button" data-theme-toggle aria-label="Светлая или тёмная тема" title="Светлая или тёмная тема">
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path class="moon" d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/><g class="sun"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></g></svg>
+        </button>
+        @if (Me.User is { } u)
+        {
+          <a class="me @Active("/cabinet")" href="/cabinet" title="Личный кабинет · CID @u.Cid"><span class="avatar">@Format.Initials(u.Name)</span><span class="me-name">@u.Name</span></a>
+          <form method="post" action="/logout"><button class="btn btn-ghost btn-sm" type="submit">Выйти</button></form>
+        }
+        else
+        {
+          <a class="btn btn-primary btn-sm" href="/login">Войти</a>
+        }
+      </div>
+    </div>
+  </header>
+  <main>
+    @RenderBody()
+  </main>
+  <footer class="foot">
+    <div class="wrap foot-inner">
+      <div>
+        <b>SkyRUS</b> — русскоязычный дивизион сети виртуальной авиации SkyNetwork
+        <div class="muted small">Время на сайте — UTC. Вход по CID и паролю SkyNetwork.</div>
+      </div>
+      <nav aria-label="Ссылки">
+        <a href="/regions">Регионы</a><a href="/permits">Допуски</a><a href="/documents">Документы</a><a href="/cabinet">Личный кабинет</a>
+      </nav>
+    </div>
+  </footer>
+</body>
+</html>

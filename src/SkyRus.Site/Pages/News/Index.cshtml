@@ -1,0 +1,17 @@
+@page "/news"
+@inject SiteContent Site
+@{ ViewData["Title"] = "Новости"; var news = Site.News(); }
+<div class="wrap page" style="max-width:860px">
+  <h1>Новости</h1>
+  @if (news.Count == 0) { <div class="empty">Новостей пока нет.</div> }
+  <div class="grid">
+    @foreach (var n in news)
+    {
+      <a class="card link-card" href="/news/@n.Id">
+        <div class="muted small">@Format.Date(n.Created) · @n.AuthorName</div>
+        <h2 style="margin:6px 0">@n.Title</h2>
+        <p class="muted" style="margin:0">@(n.Body.Length > 280 ? n.Body[..280] + "…" : n.Body)</p>
+      </a>
+    }
+  </div>
+</div>

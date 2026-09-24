@@ -1,0 +1,29 @@
+@page "/regions/{code}"
+@model SkyRus.Site.Pages.Regions.DetailsModel
+@{ var f = Model.Fir; ViewData["Title"] = "РПИ " + f.Name; }
+<div class="wrap page">
+  <p><a href="/regions">← Регионы</a></p>
+  <div class="head"><h1>РПИ @f.Name</h1><span class="badge blue mono">@f.Code</span></div>
+  @if (f.Description.Length > 0) { <p class="pre" style="max-width:760px">@f.Description</p> }
+  <div class="grid two">
+    <div>
+      <h2>Аэродромы</h2>
+      <div class="table-wrap"><table>
+        <thead><tr><th>ICAO</th><th>Аэродром</th></tr></thead>
+        <tbody>@foreach (var a in f.Airports) { <tr><td class="mono">@a.Icao</td><td>@a.Name</td></tr> }</tbody>
+      </table></div>
+    </div>
+    <div>
+      <h2>Допуски в РПИ</h2>
+      @if (Model.Permits.Count == 0) { <div class="empty">Действующих допусков нет.</div> }
+      else
+      {
+        <div class="table-wrap"><table>
+          <thead><tr><th>Позиция</th><th>Диспетчер</th><th>Выдан</th></tr></thead>
+          <tbody>@foreach (var p in Model.Permits) { <tr><td class="mono">@p.Position</td><td>@p.Name <span class="muted small">@p.Cid</span></td><td>@Format.Short(p.Issued)</td></tr> }</tbody>
+        </table></div>
+      }
+    </div>
+  </div>
+  <p style="margin-top:24px"><span class="muted">Студентов в РПИ: @f.Students.</span> <a href="/cabinet">Подать заявку на обучение →</a></p>
+</div>

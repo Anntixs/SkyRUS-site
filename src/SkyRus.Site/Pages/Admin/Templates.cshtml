@@ -1,0 +1,17 @@
+@page "/admin/templates"
+@model SkyRus.Site.Pages.Admin.TemplatesModel
+@{ ViewData["Title"] = "Виды аттестаций"; }
+<div class="head"><h1>Виды аттестаций</h1><a class="btn btn-primary" href="/admin/templates/new">Новый вид</a></div>
+<p class="muted" style="max-width:760px">Из вида аттестации создаётся протокол: пункты копируются в него и оцениваются от 1 до 5. Изменения вида не затрагивают уже созданные протоколы. Сданный экзамен на рейтинг отправляет заявку в SkyNetwork.</p>
+<div class="table-wrap"><table>
+  <thead><tr><th>Название</th><th>Вид</th><th>Рейтинг</th><th class="num">Пунктов</th><th>Статус</th></tr></thead>
+  <tbody>
+  @foreach (var t in Model.List)
+  {
+    <tr class="clickable" onclick="location.href='/admin/templates/@t.Id'">
+      <td><a href="/admin/templates/@t.Id">@t.Title</a></td><td>@Kinds.Title(t.Kind)</td><td>@if (t.TargetRating.Length > 0) { <span class="rating">@t.TargetRating</span> }</td>
+      <td class="num">@t.Items.Count</td><td>@if (t.Active) { <span class="badge ok">используется</span> } else { <span class="badge">скрыт</span> }</td>
+    </tr>
+  }
+  </tbody>
+</table></div>

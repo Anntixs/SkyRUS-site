@@ -1,0 +1,20 @@
+@page "/documents"
+@inject SiteContent Site
+@{ ViewData["Title"] = "Документы"; var docs = Site.Documents(); }
+<div class="wrap page" style="max-width:900px">
+  <h1>Документы</h1>
+  @if (docs.Count == 0) { <div class="empty">Документов пока нет.</div> }
+  @foreach (var group in docs.GroupBy(d => d.Category.Length > 0 ? d.Category : "Общее"))
+  {
+    <h2>@group.Key</h2>
+    <div class="grid two">
+      @foreach (var d in group)
+      {
+        <a class="card link-card" href="@(d.Body.Length == 0 && d.Url.Length > 0 ? d.Url : "/documents/" + d.Id)">
+          <h3 style="margin:0 0 4px">@d.Title</h3>
+          <div class="muted small">Обновлён @Format.Short(d.Updated)@(d.Url.Length > 0 ? " · есть файл" : "")</div>
+        </a>
+      }
+    </div>
+  }
+</div>

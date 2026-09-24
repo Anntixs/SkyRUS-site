@@ -1,0 +1,56 @@
+@page
+@inject SiteContent Site
+@inject TrainingService Training
+@{
+    var firs = Site.Firs();
+    var news = Site.News(3);
+    int students = firs.Sum(f => f.Students);
+    int permits = Training.Permits().Count;
+}
+<section class="hero">
+  <svg class="hero-map" viewBox="0 0 600 400" aria-hidden="true">
+    <path d="M20 250 C120 180 180 220 260 160 S420 60 580 90"/><path d="M40 320 C160 260 240 300 330 230 S470 150 590 170"/>
+    <path d="M80 380 C200 330 300 360 380 300 S520 240 600 260"/><path d="M0 180 C90 120 170 150 240 100 S380 10 520 20"/>
+    <circle cx="260" cy="160" r="5"/><circle cx="330" cy="230" r="5"/><circle cx="420" cy="80" r="5"/>
+  </svg>
+  <div class="wrap hero-inner">
+    <h1>Небо России —<br><em>в&nbsp;SkyNetwork</em></h1>
+    <p>SkyRUS — русскоязычный дивизион сети виртуальной авиации SkyNetwork. Учим диспетчеров от первого разрешения на выруливание до управления в районе, выдаём допуски и проводим экзамены на рейтинг.</p>
+    <a class="btn btn-primary" href="/cabinet">Начать обучение</a>
+    <a class="btn btn-ghost" href="/regions">Регионы</a>
+  </div>
+</section>
+<div class="wrap">
+  <div class="stats">
+    <div class="stat"><b>@firs.Count</b><span>районов полётной информации</span></div>
+    <div class="stat"><b>@firs.Sum(f => f.Airports.Count)</b><span>аэродромов приписки</span></div>
+    <div class="stat"><b>@students</b><span>студентов учебного центра</span></div>
+    <div class="stat"><b>@permits</b><span>действующих допусков</span></div>
+  </div>
+
+  <h2>Как стать диспетчером</h2>
+  <div class="steps">
+    <div class="step"><h3>Войдите</h3><p class="muted">CID и пароль SkyNetwork. Нет аккаунта — зарегистрируйтесь на сайте сети.</p></div>
+    <div class="step"><h3>Подайте заявку</h3><p class="muted">В <a href="/cabinet">личном кабинете</a> выберите РПИ и аэродром приписки.</p></div>
+    <div class="step"><h3>Учитесь</h3><p class="muted">Ментор РПИ проведёт теорию и практику. Каждый этап — протокол с оценками.</p></div>
+    <div class="step"><h3>Сдайте экзамен</h3><p class="muted">После экзамена дивизион запрашивает рейтинг, его одобряет супервайзер сети.</p></div>
+  </div>
+
+  <div class="head" style="margin-top:36px"><h2 style="margin:0">Новости</h2><a href="/news">Все новости →</a></div>
+  @if (news.Count == 0) { <div class="empty">Новостей пока нет.</div> }
+  <div class="grid three">
+    @foreach (var n in news)
+    {
+      <a class="card link-card" href="/news/@n.Id">
+        <div class="muted small">@Format.Date(n.Created)</div>
+        <h3 style="margin:6px 0">@n.Title</h3>
+        <p class="muted" style="margin:0">@(n.Body.Length > 180 ? n.Body[..180] + "…" : n.Body)</p>
+      </a>
+    }
+  </div>
+
+  <div class="head" style="margin-top:36px"><h2 style="margin:0">Регионы</h2><a href="/regions">Все РПИ →</a></div>
+  <div class="chips">
+    @foreach (var f in firs) { <a class="chip" href="/regions/@f.Code">@f.Name <b>@f.Code</b></a> }
+  </div>
+</div>

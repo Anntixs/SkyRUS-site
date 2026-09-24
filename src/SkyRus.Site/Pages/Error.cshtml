@@ -1,0 +1,9 @@
+@page "/error/{code:int}"
+@model ErrorModel
+@{ ViewData["Title"] = Model.Code == 404 ? "Страница не найдена" : "Ошибка"; }
+<div class="wrap page" style="max-width:620px">
+  <div class="muted mono">@Model.Code</div>
+  <h1>@(Model.Code == 404 ? "Страница не найдена" : "Что-то пошло не так")</h1>
+  <p class="muted">@(Model.Code == 404 ? "Такой страницы нет или у вас нет к ней доступа." : "Попробуйте ещё раз чуть позже.")</p>
+  <a class="btn btn-primary" href="/">На главную</a>
+</div>
