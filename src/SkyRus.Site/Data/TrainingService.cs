@@ -23,11 +23,34 @@ public sealed partial class TrainingService(Database db)
         airport = airport.Trim().ToUpperInvariant();
         if (airport.Length > 0 && c.ExecuteScalar<long>("SELECT COUNT(*) FROM airports WHERE icao = @airport AND fir_id = @firId", new { airport, firId }) == 0)
             return "Этот аэродром не относится к выбранному РПИ";
+        if (CanRequest(c, cid) is { } error) return error;
+        try
+        {
+            c.Execute("""
+                INSERT INTO training_requests (cid, fir_id, airport, message, created_at) VALUES (@cid, @firId, @airport, @message, @now)
+                """, new { cid, firId, airport, message = Clip(message, 2000), now = Database.Now() });
+        }
+        catch (Microsoft.Data.Sqlite.SqliteException e) when (e.SqliteErrorCode == 19) // the same form sent twice at once
+        {
+            return "Заявка уже подана";
+        }
+        return null;
+    }
+
+    /// <summary>One request per member: none while one is open, and none once they are a student.</summary>
+    public string? CanRequest(long cid)
+    {
+        using var c = db.Open();
+        return CanRequest(c, cid);
+    }
+
+    private static string? CanRequest(Microsoft.Data.Sqlite.SqliteConnection c, long cid)
+    {
         if (c.ExecuteScalar<long>("SELECT COUNT(*) FROM training_requests WHERE cid = @cid AND status = 'open'", new { cid }) > 0)
-            return "У вас уже есть заявка, она ожидает рассмотрения";
-        c.Execute("""
-            INSERT INTO training_requests (cid, fir_id, airport, message, created_at) VALUES (@cid, @firId, @airport, @message, @now)
-            """, new { cid, firId, airport, message = Clip(message, 2000), now = Database.Now() });
+            return "Заявка уже подана";
+        if (c.ExecuteScalar<long>("SELECT COUNT(*) FROM students WHERE cid = @cid", new { cid }) > 0
+            || c.ExecuteScalar<long>("SELECT COUNT(*) FROM training_requests WHERE cid = @cid AND status = 'accepted'", new { cid }) > 0)
+            return "Вы уже проходите обучение";
         return null;
     }
 
@@ -111,13 +134,14 @@ public sealed partial class TrainingService(Database db)
         return c.QuerySingleOrDefault<Student>(StudentSelect + " WHERE s.cid = @cid", new { cid });
     }
 
-    /// <summary>Makes sure the member has a student card (an instructor can open one without a request).</summary>
-    public void EnsureStudent(long cid, long? firId = null)
+    /// <summary>Makes sure the member has a student card. An open request of theirs is accepted by the same staff member.</summary>
+    public void EnsureStudent(long actor, long cid)
     {
         using var c = db.Open();
+        var open = c.QuerySingleOrDefault<long?>("SELECT id FROM training_requests WHERE cid = @cid AND status = 'open'", new { cid });
+        if (open is { } id && Accept(actor, id)) return;
         long now = Database.Now();
-        c.Execute("INSERT INTO students (cid, fir_id, created_at, updated_at) VALUES (@cid, @firId, @now, @now) ON CONFLICT(cid) DO NOTHING",
-            new { cid, firId, now });
+        c.Execute("INSERT INTO students (cid, created_at, updated_at) VALUES (@cid, @now, @now) ON CONFLICT(cid) DO NOTHING", new { cid, now });
     }
 
     public string? SetHome(long actor, long cid, long firId, string airport)

@@ -33,7 +33,6 @@
     </div>
     <div class="summary" style="margin-top:14px">Средняя оценка: <span data-average>—</span></div>
     <label style="display:block;margin-top:16px"><span>Комментарий</span><textarea name="comment" maxlength="4000">@p.Comment</textarea></label>
-    <p class="muted small">Аттестация сдана, если ни один пункт не оценён ниже @ProtocolService.PassGrade. @if (p.IsExam) { <span>После закрытия сданного экзамена заявка на рейтинг <b>@p.TargetRating</b> автоматически уйдёт в SkyNetwork на одобрение супервайзеру.</span> }</p>
     <div class="row">
       <button class="btn" type="submit" asp-page-handler="Save">Сохранить</button>
       <button class="btn btn-accent" type="submit" asp-page-handler="Close" onclick="return confirm('Закрыть протокол? После закрытия оценки не меняются.')">Закрыть протокол</button>
@@ -43,7 +42,6 @@
 else
 {
   <partial name="_ProtocolView" model="p" />
-  @if (p.IsOpen) { <p class="muted">Экзамены на рейтинг проводят и закрывают инструкторы.</p> }
 }
 
 @if (p.IsExam && p.Status == "passed")

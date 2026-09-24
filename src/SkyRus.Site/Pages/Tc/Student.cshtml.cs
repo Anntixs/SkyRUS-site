@@ -2,11 +2,12 @@ using Microsoft.AspNetCore.Mvc;
 using SkyRus.Site.Data;
 using SkyRus.Site.Network;
 using SkyRus.Site.Security;
+using SkyRus.Site.Services;
 
 namespace SkyRus.Site.Pages.Tc;
 
 public sealed class StudentModel(CurrentUser me, SiteContent content, TrainingService training, ProtocolService protocols,
-    UserService users, INetworkClient network) : TcPageModel(me)
+    UserService users, INetworkClient network, MemberRefresh refresh) : TcPageModel(me)
 {
     public Student Student { get; private set; } = new();
     public User? Member { get; private set; }
@@ -31,7 +32,13 @@ public sealed class StudentModel(CurrentUser me, SiteContent content, TrainingSe
         return true;
     }
 
-    public IActionResult OnGet(long cid) => Load(cid) ? Page() : NotFound();
+    public async Task<IActionResult> OnGetAsync(long cid)
+    {
+        if (training.Student(cid) == null) return NotFound();
+        await refresh.RefreshAsync(cid, HttpContext.RequestAborted);
+        Load(cid);
+        return Page();
+    }
 
     public IActionResult OnPostHome(long cid, long firId, string? airport)
     {

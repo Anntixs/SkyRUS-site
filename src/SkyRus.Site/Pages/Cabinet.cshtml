@@ -28,13 +28,9 @@
         </div>
       }
 
-      <h2 style="margin-top:0">Заявка на обучение</h2>
-      @if (Model.HasOpenRequest)
+      @if (Model.RequestBlocked == null)
       {
-        <div class="alert">Ваша заявка ожидает рассмотрения. Новую можно подать после ответа.</div>
-      }
-      else
-      {
+        <h2 style="margin-top:0">Заявка на обучение</h2>
         <form method="post" class="card form wide">
           <div class="row">
             <label><span>РПИ</span>
@@ -53,7 +49,7 @@
               </select>
             </label>
           </div>
-          <label><span>О себе</span><textarea name="message" maxlength="2000" placeholder="Опыт в симуляторах, когда удобно заниматься, есть ли микрофон"></textarea></label>
+          <label><span>О себе</span><textarea name="message" maxlength="2000"></textarea></label>
           <div><button class="btn btn-accent" type="submit">Подать заявку</button></div>
         </form>
       }

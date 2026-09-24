@@ -43,9 +43,14 @@ public class TrainingTests
         var student = await site.As(StudentCid, "Petr Student", "OBS");
         await student.SubmitAsync("/cabinet", new Dictionary<string, string> { ["firId"] = Fir(site, "UIII").ToString(), ["airport"] = "UIII", ["message"] = "Вечерами" });
         var request = Assert.Single(site.Get<TrainingService>().Requests());
-        Assert.Contains("ожидает", await student.HtmlAsync("/cabinet"));
-        // A second request is refused while the first is open.
-        Assert.Equal(1, site.Get<TrainingService>().Requests().Count);
+        var cabinet = await student.HtmlAsync("/cabinet");
+        Assert.Contains("ожидает", cabinet);
+        Assert.DoesNotContain("Подать заявку", cabinet);
+        // Sending the form again (a reload of the page) adds nothing.
+        var again = await student.SubmitAsync("/cabinet", new Dictionary<string, string> { ["firId"] = Fir(site, "UIII").ToString(), ["airport"] = "", ["message"] = "" });
+        Assert.Equal(HttpStatusCode.Redirect, again.StatusCode);
+        Assert.Contains("Заявка уже подана", await student.HtmlAsync("/cabinet"));
+        Assert.Single(site.Get<TrainingService>().Requests());
 
         // The mentor sees it in the FIR filter and takes it.
         Assert.Contains("Petr Student", await mentor.HtmlAsync($"/tc/requests?fir={Fir(site, "UIII")}"));
@@ -103,6 +108,48 @@ public class TrainingTests
         Assert.Equal("S1", site.Get<UserService>().Find(StudentCid)!.Rating);
         Assert.Contains("рейтинг выдан", await student.HtmlAsync("/cabinet"));
         Assert.Contains(site.Get<TrainingService>().Log(StudentCid), c => c.Body.Contains("рейтинг выдан"));
+
+        // A student cannot apply again.
+        await student.SubmitAsync("/cabinet", new Dictionary<string, string> { ["firId"] = Fir(site, "UUWV").ToString(), ["airport"] = "", ["message"] = "" });
+        Assert.Single(site.Get<TrainingService>().Requests(cid: StudentCid));
+    }
+
+    [Fact]
+    public async Task ApprovedRating_ShowsUpWithoutWaitingForTheSync()
+    {
+        var (site, instructor, _) = await Setup();
+        using var _s = site;
+        site.Get<MemberRefresh>().Interval = TimeSpan.Zero;
+        var student = await site.As(StudentCid, "Petr Student", "OBS");
+        await student.SubmitAsync("/cabinet", new Dictionary<string, string> { ["firId"] = Fir(site, "UUWV").ToString(), ["airport"] = "", ["message"] = "" });
+
+        // The instructor opens the card by CID: the open request is taken by them.
+        await instructor.SubmitAsync("/tc/students", new Dictionary<string, string> { ["cid"] = StudentCid.ToString() }, "/tc/students?handler=Open");
+        var created = await instructor.SubmitAsync($"/tc/students/{StudentCid}", new Dictionary<string, string> { ["templateId"] = TemplateId(site, "DEL/GND: экзамен на S1").ToString() },
+            $"/tc/students/{StudentCid}?handler=Protocol");
+        long examId = long.Parse(created.Headers.Location!.OriginalString.Split('/').Last());
+        var request = Assert.Single(site.Get<TrainingService>().Requests(cid: StudentCid));
+        Assert.Equal(("accepted", (long?)Instructor), (request.Status, request.HandledBy));
+        Assert.Equal("Москва", site.Get<TrainingService>().Student(StudentCid)!.FirName);
+        await Grade(instructor, site, examId, _ => 5, "Close");
+
+        // The supervisor approves; the student's next page shows it, no background sync involved.
+        site.Network.Decide(site.Get<ProtocolService>().Protocol(examId)!.RrId!.Value, "approved", "", StudentCid, "S1");
+        var cabinet = await student.HtmlAsync("/cabinet");
+        Assert.Contains("рейтинг выдан", cabinet);
+        Assert.Contains(">S1<", cabinet);
+        Assert.Equal("S1", site.Get<UserService>().Find(StudentCid)!.Rating);
+    }
+
+    [Fact]
+    public async Task Regions_IncludeTheRussianSpeakingCountries()
+    {
+        using var site = new SiteFactory();
+        var html = await site.Browser().HtmlAsync("/regions");
+        foreach (var code in new[] { "UUWV", "UMMV", "UKBV", "LUUU", "UGGG", "UDDD", "UBBA", "UAAA", "UTTR", "UCFM", "UTDD", "UTAA" })
+            Assert.Contains(code, html);
+        Assert.DoesNotContain("EVRR", html);
+        Assert.Contains("UMMS", await site.Browser().HtmlAsync("/regions/UMMV"));
     }
 
     [Fact]
@@ -178,5 +225,36 @@ public class TrainingTests
         await mentor.SubmitAsync($"/tc/requests/{r.Id}", new Dictionary<string, string> { ["reason"] = "Набор в РПИ закрыт до осени" }, $"/tc/requests/{r.Id}?handler=Decline");
         Assert.Contains("Набор в РПИ закрыт до осени", await student.HtmlAsync("/cabinet"));
         Assert.Contains("Набор в РПИ закрыт до осени", await mentor.HtmlAsync("/tc/requests?archive=1") + await mentor.HtmlAsync($"/tc/requests/{r.Id}"));
+    }
+}
+
+public class UpgradeTests
+{
+    [Fact]
+    public void ExistingDatabase_GetsNewRegions_AndLosesRepeatedRequests()
+    {
+        using var site = new SiteFactory();
+        var db = site.Get<Database>();
+        using (var c = db.Open())
+        {
+            // As a database of the first version: Russia only, no version mark, the same request sent three times.
+            Dapper.SqlMapper.Execute(c, """
+                DELETE FROM airports WHERE fir_id IN (SELECT id FROM firs WHERE code IN ('UMMV', 'UKBV'));
+                DELETE FROM firs WHERE code IN ('UMMV', 'UKBV');
+                DELETE FROM meta;
+                DROP INDEX ux_requests_open;
+                INSERT INTO training_requests (cid, fir_id, created_at) SELECT 25, id, 1 FROM firs WHERE code = 'UUWV';
+                INSERT INTO training_requests (cid, fir_id, created_at) SELECT 25, id, 2 FROM firs WHERE code = 'UUWV';
+                INSERT INTO training_requests (cid, fir_id, created_at) SELECT 25, id, 3 FROM firs WHERE code = 'UUWV';
+                """);
+        }
+        db.Migrate();
+        var content = site.Get<SiteContent>();
+        Assert.NotNull(content.Fir("UMMV"));
+        Assert.NotNull(content.Fir("UKBV"));
+        Assert.Single(content.Firs(), f => f.Code == "UUWV");
+        var r = Assert.Single(site.Get<TrainingService>().Requests(cid: 25));
+        Assert.Equal(1, new DateTimeOffset(r.Created).ToUnixTimeSeconds());
+        Assert.Equal("Заявка уже подана", site.Get<TrainingService>().Request(25, content.Fir("UUWV")!.Id, "", ""));
     }
 }

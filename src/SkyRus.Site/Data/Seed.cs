@@ -25,6 +25,31 @@ internal static class Seed
         ("UHPP", "Петропавловск-Камчатский", [("UHPP", "Елизово")]),
     ];
 
+    // Added in version 2: the other Russian-speaking countries (without the Baltic states).
+    private static readonly (string Code, string Name, (string Icao, string Name)[] Airports)[] Neighbours =
+    [
+        ("UMMV", "Минск (Беларусь)", [("UMMS", "Национальный аэропорт Минск"), ("UMGG", "Гомель"), ("UMBB", "Брест"), ("UMII", "Витебск"), ("UMMG", "Гродно"), ("UMOO", "Могилёв")]),
+        ("UKBV", "Киев (Украина)", [("UKBB", "Борисполь"), ("UKKK", "Жуляны")]),
+        ("UKDV", "Днепр (Украина)", [("UKDD", "Днепр"), ("UKHH", "Харьков"), ("UKDE", "Запорожье")]),
+        ("UKLV", "Львов (Украина)", [("UKLL", "Львов")]),
+        ("UKOV", "Одесса (Украина)", [("UKOO", "Одесса")]),
+        ("LUUU", "Кишинёв (Молдова)", [("LUKK", "Кишинёв")]),
+        ("UGGG", "Тбилиси (Грузия)", [("UGTB", "Тбилиси"), ("UGKO", "Кутаиси"), ("UGSB", "Батуми")]),
+        ("UDDD", "Ереван (Армения)", [("UDYZ", "Звартноц"), ("UDSG", "Гюмри")]),
+        ("UBBA", "Баку (Азербайджан)", [("UBBB", "Гейдар Алиев"), ("UBBG", "Гянджа"), ("UBBN", "Нахичевань")]),
+        ("UAAA", "Алматы (Казахстан)", [("UAAA", "Алматы"), ("UAAH", "Балхаш")]),
+        ("UACN", "Астана (Казахстан)", [("UACC", "Астана"), ("UAKK", "Караганда"), ("UASS", "Семей"), ("UASK", "Усть-Каменогорск")]),
+        ("UATT", "Актобе (Казахстан)", [("UATT", "Актобе"), ("UATG", "Атырау"), ("UATE", "Актау"), ("UARR", "Уральск")]),
+        ("UAII", "Шымкент (Казахстан)", [("UAII", "Шымкент"), ("UAOO", "Кызылорда"), ("UADD", "Тараз")]),
+        ("UTTR", "Ташкент (Узбекистан)", [("UTTT", "Ташкент"), ("UTSS", "Самарканд"), ("UTSB", "Бухара"), ("UTFN", "Наманган"), ("UTNU", "Ургенч")]),
+        ("UCFM", "Бишкек (Кыргызстан)", [("UCFM", "Манас"), ("UCFO", "Ош")]),
+        ("UTDD", "Душанбе (Таджикистан)", [("UTDD", "Душанбе"), ("UTDL", "Худжанд")]),
+        ("UTAA", "Ашхабад (Туркменистан)", [("UTAA", "Ашхабад"), ("UTAK", "Туркменбаши"), ("UTAM", "Мары")]),
+    ];
+
+    /// <summary>Raised when the starting content grows; existing databases get only what was added.</summary>
+    private const int Version = 2;
+
     private static readonly (string Title, string Description)[] Theory =
     [
         ("Правила подключения к сети SkyNetwork", "позывной, имя, радиус видимости клиента, частоты и ATIS"),
@@ -67,17 +92,19 @@ internal static class Seed
         using var tx = c.BeginTransaction();
         long now = Database.Now();
 
-        if (c.ExecuteScalar<long>("SELECT COUNT(*) FROM firs", transaction: tx) == 0)
+        c.Execute("CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)", transaction: tx);
+        bool fresh = c.ExecuteScalar<long>("SELECT COUNT(*) FROM firs", transaction: tx) == 0;
+        int version = fresh ? 0 : c.ExecuteScalar<int?>("SELECT CAST(value AS INTEGER) FROM meta WHERE key = 'seed'", transaction: tx) ?? 1;
+
+        if (fresh) AddFirs(c, tx, Firs);
+        if (version < 2)
         {
-            int sort = 0;
-            foreach (var (code, name, airports) in Firs)
-            {
-                long id = c.ExecuteScalar<long>("INSERT INTO firs (code, name, sort) VALUES (@code, @name, @sort) RETURNING id",
-                    new { code, name, sort = sort++ }, tx);
-                foreach (var (icao, an) in airports)
-                    c.Execute("INSERT INTO airports (icao, fir_id, name) VALUES (@icao, @id, @an)", new { icao, id, an }, tx);
-            }
+            AddFirs(c, tx, Neighbours);
+            c.Execute("UPDATE documents SET body = REPLACE(body, 'Войдите на сайт с CID и паролем SkyNetwork.', 'Войдите через аккаунт SkyNetwork.')",
+                transaction: tx);
         }
+        c.Execute("INSERT INTO meta (key, value) VALUES ('seed', @Version) ON CONFLICT(key) DO UPDATE SET value = @Version",
+            new { Version = Version.ToString() }, tx);
 
         if (c.ExecuteScalar<long>("SELECT COUNT(*) FROM templates", transaction: tx) == 0)
         {
@@ -101,7 +128,7 @@ internal static class Seed
             {
                 now,
                 training = """
-                    1. Войдите на сайт с CID и паролем SkyNetwork.
+                    1. Войдите через аккаунт SkyNetwork.
                     2. В личном кабинете выберите РПИ и аэродром приписки и подайте заявку на обучение.
                     3. Инструктор или ментор РПИ берёт заявку в работу и связывается с вами.
                     4. Обучение идёт по этапам: теория, практика, экзамен. Каждая аттестация оформляется протоколом с оценками по пунктам (от 1 до 5).
@@ -115,6 +142,20 @@ internal static class Seed
             }, tx);
         }
         tx.Commit();
+    }
+
+    /// <summary>Adds regions and airports that are not there yet (staff may have created some by hand).</summary>
+    private static void AddFirs(SqliteConnection c, SqliteTransaction tx, IEnumerable<(string Code, string Name, (string Icao, string Name)[] Airports)> firs)
+    {
+        int sort = c.ExecuteScalar<int>("SELECT COALESCE(MAX(sort) + 1, 0) FROM firs", transaction: tx);
+        foreach (var (code, name, airports) in firs)
+        {
+            var id = c.QuerySingleOrDefault<long?>("SELECT id FROM firs WHERE code = @code", new { code }, tx)
+                     ?? c.ExecuteScalar<long>("INSERT INTO firs (code, name, sort) VALUES (@code, @name, @sort) RETURNING id",
+                         new { code, name, sort = sort++ }, tx);
+            foreach (var (icao, an) in airports)
+                c.Execute("INSERT INTO airports (icao, fir_id, name) VALUES (@icao, @id, @an) ON CONFLICT(icao) DO NOTHING", new { icao, id, an }, tx);
+        }
     }
 
     private static void AddTemplate(SqliteConnection c, SqliteTransaction tx, string title, string kind, string rating, int sort,

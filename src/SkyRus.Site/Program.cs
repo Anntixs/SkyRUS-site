@@ -23,6 +23,7 @@ builder.Services.AddSingleton<ProtocolService>();
 builder.Services.AddHttpClient("network", c => c.Timeout = TimeSpan.FromSeconds(15));
 builder.Services.AddSingleton<INetworkClient, HttpNetworkClient>();
 builder.Services.AddSingleton<RatingRequestSync>();
+builder.Services.AddSingleton<MemberRefresh>();
 if (builder.Configuration.GetValue("Site:BackgroundSync", true))
     builder.Services.AddHostedService(sp => sp.GetRequiredService<RatingRequestSync>());
 builder.Services.AddScoped<CurrentUser>();
@@ -82,6 +83,10 @@ app.Use(async (ctx, next) =>
 {
     var user = ctx.RequestServices.GetRequiredService<CurrentUser>();
     await user.LoadAsync(ctx);
+    // The rating and rating requests follow the network without signing in again.
+    if (user.SignedIn && HttpMethods.IsGet(ctx.Request.Method) && !ctx.Request.Path.StartsWithSegments("/login")
+        && await ctx.RequestServices.GetRequiredService<MemberRefresh>().RefreshAsync(user.Cid, ctx.RequestAborted))
+        await user.LoadAsync(ctx);
     // The training center and administration do not exist for anyone else: plain 404, not indexed.
     bool tc = ctx.Request.Path.StartsWithSegments("/tc"), admin = ctx.Request.Path.StartsWithSegments("/admin");
     if (tc || admin)

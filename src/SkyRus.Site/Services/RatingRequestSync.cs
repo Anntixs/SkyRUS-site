@@ -9,7 +9,7 @@ namespace SkyRus.Site.Services;
 /// </summary>
 public sealed class RatingRequestSync(ProtocolService protocols, UserService users, INetworkClient network, ILogger<RatingRequestSync> log) : BackgroundService
 {
-    public static readonly TimeSpan Interval = TimeSpan.FromMinutes(5);
+    public static readonly TimeSpan Interval = TimeSpan.FromMinutes(1);
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
