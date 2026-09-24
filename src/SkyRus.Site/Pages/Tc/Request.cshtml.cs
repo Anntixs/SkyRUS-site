@@ -29,7 +29,7 @@ public sealed class RequestModel(CurrentUser me, TrainingService training) : TcP
     {
         if (!Load(id)) return NotFound();
         Error = training.Decline(Me.Cid, id, reason ?? "");
-        if (Error == null) Message = "Заявка отклонена, студент увидит причину в личном кабинете";
+        if (Error == null) Message = "Заявка отклонена";
         Load(id);
         return Page();
     }

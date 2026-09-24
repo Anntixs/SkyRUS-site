@@ -2,7 +2,6 @@
 @model SkyRus.Site.Pages.Admin.StaffModel
 @{ ViewData["Title"] = "Сотрудники"; }
 <h1>Сотрудники учебного центра</h1>
-<p class="muted" style="max-width:760px"><b>Менторы</b> берут заявки, ведут студентов, проводят зачёты по теории и практике. <b>Инструкторы</b> вдобавок проводят экзамены на рейтинг и выдают допуски. <b>Администраторы</b> управляют сотрудниками, видами аттестаций, регионами, новостями и документами. Администраторы из настроек сервера (<span class="mono">Site:Admins</span>) не снимаются здесь.</p>
 @if (Model.Message != null) { <div class="alert ok">@Model.Message</div> }
 @if (Model.Error != null) { <div class="alert error">@Model.Error</div> }
 <div class="table-wrap" style="margin-bottom:22px"><table>

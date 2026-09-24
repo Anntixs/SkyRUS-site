@@ -90,7 +90,7 @@ public sealed class ProtocolService(Database db, TrainingService training, INetw
     {
         var t = Template(templateId);
         if (t is not { Active: true }) return (0, "Выберите вид аттестации");
-        training.EnsureStudent(cid);
+        training.EnsureStudent(actor, cid);
         using var c = db.Open();
         using var tx = c.BeginTransaction();
         long id = c.ExecuteScalar<long>("""
@@ -169,12 +169,13 @@ public sealed class ProtocolService(Database db, TrainingService training, INetw
     }
 
     /// <summary>Protocols whose rating request is unsent or still pending at the network.</summary>
-    public IReadOnlyList<Protocol> RatingRequestsToSync()
+    public IReadOnlyList<Protocol> RatingRequestsToSync(long? cid = null)
     {
         using var c = db.Open();
         return c.Query<Protocol>(ProtocolSelect + """
              WHERE p.kind = 'exam' AND p.target_rating <> '' AND p.status = 'passed' AND (p.rr_id IS NULL OR p.rr_status = 'pending')
-            """).ToList();
+               AND (@cid IS NULL OR p.cid = @cid)
+            """, new { cid }).ToList();
     }
 
     /// <summary>Reads the network's decision; returns true when it changed.</summary>

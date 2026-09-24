@@ -3,7 +3,6 @@
 @{ ViewData["Title"] = "Допуски"; }
 <div class="wrap page">
   <h1>Допуски</h1>
-  <p class="muted" style="max-width:720px">Допуск разрешает диспетчеру работать на конкретной позиции. Допуски выдают инструкторы учебного центра.</p>
   <div class="chips">
     <a class="chip @(Model.Selected == null ? "on" : "")" href="/permits">Все</a>
     @foreach (var f in Model.Firs) { <a class="chip @(Model.Selected?.Id == f.Id ? "on" : "")" href="/permits?fir=@f.Code">@f.Name</a> }

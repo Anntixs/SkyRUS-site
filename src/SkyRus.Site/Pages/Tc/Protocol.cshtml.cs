@@ -1,10 +1,11 @@
 using Microsoft.AspNetCore.Mvc;
 using SkyRus.Site.Data;
 using SkyRus.Site.Security;
+using SkyRus.Site.Services;
 
 namespace SkyRus.Site.Pages.Tc;
 
-public sealed class ProtocolModel(CurrentUser me, ProtocolService protocols) : TcPageModel(me)
+public sealed class ProtocolModel(CurrentUser me, ProtocolService protocols, MemberRefresh refresh) : TcPageModel(me)
 {
     public Protocol Protocol { get; private set; } = new();
     public string ReportUrl { get; private set; } = "";
@@ -20,7 +21,12 @@ public sealed class ProtocolModel(CurrentUser me, ProtocolService protocols) : T
         return true;
     }
 
-    public IActionResult OnGet(long id) => Load(id) ? Page() : NotFound();
+    public async Task<IActionResult> OnGetAsync(long id)
+    {
+        if (!Load(id)) return NotFound();
+        if (Protocol.RrStatus == "pending" && await refresh.RefreshAsync(Protocol.Cid, HttpContext.RequestAborted)) Load(id);
+        return Page();
+    }
 
     private Dictionary<long, int?> Grades() =>
         Protocol.Items.ToDictionary(i => i.Id, i => int.TryParse(Request.Form[$"g{i.Id}"], out var g) ? g : (int?)null);

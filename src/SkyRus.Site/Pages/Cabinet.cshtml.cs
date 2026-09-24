@@ -12,10 +12,11 @@ public sealed class CabinetModel(CurrentUser me, SiteContent content, TrainingSe
     public IReadOnlyList<TrainingRequest> Requests { get; private set; } = [];
     public IReadOnlyList<Permit> Permits { get; private set; } = [];
     public IReadOnlyList<Protocol> Exams { get; private set; } = [];
-    public string? Message { get; private set; }
-    public string? Error { get; private set; }
+    [TempData] public string? Message { get; set; }
+    [TempData] public string? Error { get; set; }
 
-    public bool HasOpenRequest => Requests.Any(r => r.Status == "open");
+    /// <summary>Why a new request cannot be sent (already sent, or already a student), or null.</summary>
+    public string? RequestBlocked { get; private set; }
 
     public void OnGet()
     {
@@ -24,13 +25,14 @@ public sealed class CabinetModel(CurrentUser me, SiteContent content, TrainingSe
         Requests = training.Requests(cid: me.Cid);
         Permits = training.Permits(me.Cid);
         Exams = protocols.RatingRequestsOf(me.Cid);
+        RequestBlocked = training.CanRequest(me.Cid);
     }
 
+    // Redirect after the post, so reloading the page does not send the form again.
     public IActionResult OnPost(long firId, string? airport, string? message)
     {
         Error = training.Request(me.Cid, firId, airport ?? "", message ?? "");
-        if (Error == null) Message = "Заявка отправлена. Инструктор или ментор РПИ свяжется с вами.";
-        OnGet();
-        return Page();
+        if (Error == null) Message = "Заявка отправлена";
+        return RedirectToPage();
     }
 }

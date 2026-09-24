@@ -62,6 +62,11 @@ public sealed class Database
                 airport TEXT NOT NULL DEFAULT '', message TEXT NOT NULL DEFAULT '', status TEXT NOT NULL DEFAULT 'open',
                 handled_by INTEGER, handled_at INTEGER, reason TEXT NOT NULL DEFAULT '', created_at INTEGER NOT NULL);
             CREATE INDEX IF NOT EXISTS ix_requests_status ON training_requests (status, fir_id, created_at);
+            -- Repeated requests sent before there was a limit: only the first stays.
+            DELETE FROM training_requests WHERE status = 'open' AND EXISTS (
+                SELECT 1 FROM training_requests o WHERE o.cid = training_requests.cid
+                  AND (o.status = 'accepted' OR (o.status = 'open' AND o.id < training_requests.id)));
+            CREATE UNIQUE INDEX IF NOT EXISTS ux_requests_open ON training_requests (cid) WHERE status = 'open';
 
             -- Position endorsements ("solo"/permits), e.g. UUEE_TWR.
             CREATE TABLE IF NOT EXISTS permits (

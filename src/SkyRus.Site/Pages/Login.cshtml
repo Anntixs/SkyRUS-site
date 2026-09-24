@@ -1,15 +1,15 @@
 @page "/login/{handler?}"
 @model LoginModel
+@inject Microsoft.Extensions.Options.IOptions<SiteOptions> Site
 @{ ViewData["Title"] = "Вход"; var back = HttpContext.Request.Query["returnUrl"].ToString(); }
 <div class="wrap page" style="max-width:480px">
   <h1>Вход</h1>
   @if (Model.Error != null) { <div class="alert error">@Model.Error</div> }
   <div class="card">
-    <p style="margin-top:0">На SkyRUS входят с аккаунтом сети <b>SkyNetwork</b>. Пароль вводится только на сайте сети — SkyRUS его не видит и не хранит.</p>
     <a class="btn btn-primary" style="width:100%;padding:12px" href="/login/start@(back.Length > 0 ? "?returnUrl=" + Uri.EscapeDataString(back) : "")">
       <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="currentColor"><path d="M3 14.5 21 6l-6.2 12.4-3.3-4.9z"/></svg>
       Войти через SkyNetwork
     </a>
-    <p class="muted small" style="margin:14px 0 0">Нет аккаунта? Зарегистрируйтесь на сайте сети SkyNetwork и получите CID.</p>
+    @if (Site.Value.NetworkUrl.Length > 0) { <p class="muted small" style="margin:14px 0 0">Нет аккаунта? <a href="@(Site.Value.NetworkUrl.TrimEnd('/'))/register">Регистрация</a></p> }
   </div>
 </div>

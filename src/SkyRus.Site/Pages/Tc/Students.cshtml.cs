@@ -36,7 +36,7 @@ public sealed class StudentsModel(CurrentUser me, SiteContent content, TrainingS
             }
             users.Upsert(m);
         }
-        training.EnsureStudent(cid);
+        training.EnsureStudent(Me.Cid, cid);
         return Redirect($"/tc/students/{cid}");
     }
 }
