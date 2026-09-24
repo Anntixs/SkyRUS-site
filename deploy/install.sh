@@ -14,11 +14,15 @@ chown skyrus:skyrus /var/lib/skyrus
 # Settings with the API key: readable by root only (systemd reads them before starting the site).
 if [ ! -f /etc/skyrus/site.env ]; then
   read -rp "Адрес сайта сети SkyNetwork (например https://sky.network.npzy2.us): " NET
-  read -rp "Ключ API дивизиона SKYRUS (skd_…, выдаётся в «Заявки на рейтинг» на сайте сети): " KEY
+  read -rp "Вход через SkyNetwork — client_id (сайт сети: Управление → «Вход на другие сайты»): " CLIENT_ID
+  read -rp "Вход через SkyNetwork — секрет (sks_…): " CLIENT_SECRET
+  read -rp "Ключ API дивизиона SKYRUS (skd_…, сайт сети: «Заявки на рейтинг» → «Ключи API дивизионов»): " KEY
   read -rp "CID администраторов SkyRUS через запятую: " ADMINS
   umask 077
   cat > /etc/skyrus/site.env <<ENV
 Site__NetworkUrl=$NET
+Site__ConnectClientId=$CLIENT_ID
+Site__ConnectClientSecret=$CLIENT_SECRET
 Site__NetworkApiKey=$KEY
 Site__Admins=$ADMINS
 Site__PublicUrl=https://$DOMAIN

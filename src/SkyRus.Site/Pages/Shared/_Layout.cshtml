@@ -42,7 +42,7 @@
         @if (Me.User is { } u)
         {
           <a class="me @Active("/cabinet")" href="/cabinet" title="Личный кабинет · CID @u.Cid"><span class="avatar">@Format.Initials(u.Name)</span><span class="me-name">@u.Name</span></a>
-          <form method="post" action="/logout"><button class="btn btn-ghost btn-sm" type="submit">Выйти</button></form>
+          <form method="post" asp-page="/Logout"><button class="btn btn-ghost btn-sm" type="submit">Выйти</button></form>
         }
         else
         {

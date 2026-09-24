@@ -2,6 +2,7 @@ using System.Text.Encodings.Web;
 using System.Text.Unicode;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Mvc.ModelBinding.Metadata;
 using Microsoft.Extensions.WebEncoders;
@@ -25,6 +26,10 @@ builder.Services.AddSingleton<RatingRequestSync>();
 if (builder.Configuration.GetValue("Site:BackgroundSync", true))
     builder.Services.AddHostedService(sp => sp.GetRequiredService<RatingRequestSync>());
 builder.Services.AddScoped<CurrentUser>();
+// Sign-in cookies survive restarts: the keys live next to the database.
+var dbPath = builder.Configuration["Site:Database"] ?? "skyrus.db";
+builder.Services.AddDataProtection().SetApplicationName("SkyRUS")
+    .PersistKeysToFileSystem(new DirectoryInfo(Path.Combine(Path.GetDirectoryName(Path.GetFullPath(dbPath))!, "keys")));
 
 builder.Services.Configure<WebEncoderOptions>(o => o.TextEncoderSettings = new TextEncoderSettings(UnicodeRanges.All));
 
@@ -51,7 +56,7 @@ builder.Services.AddRazorPages(o =>
 builder.Services.AddRateLimiter(o =>
 {
     o.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-    int limit = builder.Configuration.GetValue("Site:LoginAttemptsPerMinute", 10);
+    int limit = builder.Configuration.GetValue("Site:LoginAttemptsPerMinute", 30);
     o.AddPolicy("login", ctx => RateLimitPartition.GetFixedWindowLimiter(
         ctx.Connection.RemoteIpAddress?.ToString() ?? "?",
         _ => new FixedWindowRateLimiterOptions { PermitLimit = limit, Window = TimeSpan.FromMinutes(1) }));
