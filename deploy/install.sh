@@ -18,8 +18,8 @@ if [ ! -f /etc/skyrus/site.env ]; then
   read -rp "Вход через SkyNetwork — секрет (sks_…): " CLIENT_SECRET
   read -rp "Ключ API дивизиона SKYRUS (skd_…, сайт сети: «Заявки на рейтинг» → «Ключи API дивизионов»): " KEY
   read -rp "CID администраторов SkyRUS через запятую: " ADMINS
-  umask 077
-  cat > /etc/skyrus/site.env <<ENV
+  # umask only for this file: the site files installed below must stay readable by the skyrus user.
+  (umask 077; cat > /etc/skyrus/site.env <<ENV
 Site__NetworkUrl=$NET
 Site__ConnectClientId=$CLIENT_ID
 Site__ConnectClientSecret=$CLIENT_SECRET
@@ -27,6 +27,7 @@ Site__NetworkApiKey=$KEY
 Site__Admins=$ADMINS
 Site__PublicUrl=https://$DOMAIN
 ENV
+  )
 fi
 
 cp "$SRC/deploy/skyrus-site.service" /etc/systemd/system/

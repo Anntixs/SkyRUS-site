@@ -14,6 +14,8 @@ dotnet publish "$SRC/src/SkyRus.Site" -c Release -o ~/skyrus-build --nologo -v q
 systemctl stop skyrus-site || true
 mkdir -p /opt/skyrus/site
 cp -r ~/skyrus-build/. /opt/skyrus/site/
+# The site runs as the skyrus user, so it must be able to read its files whatever root's umask is.
+chmod -R a+rX /opt/skyrus/site
 systemctl start skyrus-site
 sleep 4
 systemctl is-active skyrus-site
