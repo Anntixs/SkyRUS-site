@@ -140,6 +140,19 @@ public static class BrowserExtensions
         return await c.PostAsync(action ?? page, new FormUrlEncodedContent(data));
     }
 
+    /// <summary>Like <see cref="SubmitAsync"/>, as a form with a file (multipart).</summary>
+    public static async Task<HttpResponseMessage> SubmitMultipartAsync(this HttpClient c, string page, IDictionary<string, string> fields,
+        (string Field, string FileName, byte[] Data)? file = null)
+    {
+        var html = await (await c.GetAsync(page)).Content.ReadAsStringAsync();
+        var m = Token.Match(html);
+        Assert.True(m.Success, $"no form on {page}");
+        var form = new MultipartFormDataContent { { new StringContent(WebUtility.HtmlDecode(m.Groups[1].Value)), "__RequestVerificationToken" } };
+        foreach (var (k, v) in fields) form.Add(new StringContent(v), k);
+        if (file is { } f) form.Add(new ByteArrayContent(f.Data), f.Field, f.FileName);
+        return await c.PostAsync(page, form);
+    }
+
     public static async Task<string> HtmlAsync(this HttpClient c, string url)
     {
         var r = await c.GetAsync(url);

@@ -11,11 +11,11 @@
   else
   {
     <div class="table-wrap"><table>
-      <thead><tr><th>Позиция</th><th>РПИ</th><th>Диспетчер</th><th>CID</th><th>Выдан</th><th>Кем</th></tr></thead>
+      <thead><tr><th>Диспетчер</th><th>Допуски</th></tr></thead>
       <tbody>
-      @foreach (var (p, fir) in Model.List)
+      @foreach (var (name, positions) in Model.List)
       {
-        <tr><td class="mono"><b>@p.Position</b></td><td>@(fir?.Name ?? "—")</td><td>@p.Name</td><td class="mono">@p.Cid</td><td>@Format.Short(p.Issued)</td><td>@p.IssuedByName</td></tr>
+        <tr><td>@name</td><td>@foreach (var p in positions) { <span class="badge mono permit">@p</span> }</td></tr>
       }
       </tbody>
     </table></div>

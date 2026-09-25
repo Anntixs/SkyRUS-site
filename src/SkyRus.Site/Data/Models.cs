@@ -179,6 +179,11 @@ public sealed class NewsPost
     public bool Published { get; set; }
     public long CreatedAt { get; set; }
     public DateTime Created => Time.Utc(CreatedAt);
+    /// <summary>When the banner was last changed, or null without a banner.</summary>
+    public long? BannerAt { get; set; }
+    public bool HasBanner => BannerAt != null;
+    /// <summary>Address of the banner; changes with the picture so browsers do not show an old one.</summary>
+    public string BannerUrl => $"/news/{Id}/banner?v={BannerAt}";
 }
 
 public sealed class Document

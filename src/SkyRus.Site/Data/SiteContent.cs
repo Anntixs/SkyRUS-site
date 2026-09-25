@@ -75,7 +75,7 @@ public sealed class SiteContent(Database db)
     {
         using var c = db.Open();
         return c.Query<NewsPost>("""
-            SELECT n.*, COALESCE(u.name, 'SkyRUS') AS author_name FROM news n LEFT JOIN users u ON u.cid = n.author_cid
+            SELECT n.id, n.title, n.body, n.author_cid, n.published, n.created_at, CASE WHEN n.banner IS NULL THEN NULL ELSE n.banner_at END AS banner_at, COALESCE(u.name, 'SkyRUS') AS author_name FROM news n LEFT JOIN users u ON u.cid = n.author_cid
             WHERE @all OR n.published = 1 ORDER BY n.created_at DESC LIMIT @limit
             """, new { limit, all }).ToList();
     }
@@ -84,7 +84,7 @@ public sealed class SiteContent(Database db)
     {
         using var c = db.Open();
         return c.QuerySingleOrDefault<NewsPost>("""
-            SELECT n.*, COALESCE(u.name, 'SkyRUS') AS author_name FROM news n LEFT JOIN users u ON u.cid = n.author_cid WHERE n.id = @id
+            SELECT n.id, n.title, n.body, n.author_cid, n.published, n.created_at, CASE WHEN n.banner IS NULL THEN NULL ELSE n.banner_at END AS banner_at, COALESCE(u.name, 'SkyRUS') AS author_name FROM news n LEFT JOIN users u ON u.cid = n.author_cid WHERE n.id = @id
             """, new { id });
     }
 
@@ -100,6 +100,46 @@ public sealed class SiteContent(Database db)
         return c.ExecuteScalar<long>("""
             INSERT INTO news (title, body, author_cid, published, created_at) VALUES (@title, @body, @author, @published, @now) RETURNING id
             """, new { title, body, author, published, now = Database.Now() });
+    }
+
+    /// <summary>Largest banner accepted, in bytes.</summary>
+    public const int MaxBannerBytes = 5 * 1024 * 1024;
+
+    /// <summary>The picture type from its first bytes (PNG, JPEG, GIF or WebP), or null for anything else.</summary>
+    public static string? ImageType(ReadOnlySpan<byte> data)
+    {
+        if (data.StartsWith((byte[])[0x89, (byte)'P', (byte)'N', (byte)'G', 0x0D, 0x0A, 0x1A, 0x0A])) return "image/png";
+        if (data.StartsWith((byte[])[0xFF, 0xD8, 0xFF])) return "image/jpeg";
+        if (data.StartsWith("GIF87a"u8) || data.StartsWith("GIF89a"u8)) return "image/gif";
+        if (data.Length >= 12 && data[..4].SequenceEqual("RIFF"u8) && data[8..12].SequenceEqual("WEBP"u8)) return "image/webp";
+        return null;
+    }
+
+    /// <summary>Attaches a banner to a post; an error message when the file is not a picture or too big.</summary>
+    public string? SetBanner(long id, byte[] data)
+    {
+        if (data.Length == 0) return "Файл баннера пустой";
+        if (data.Length > MaxBannerBytes) return "Баннер больше 5 МБ";
+        if (ImageType(data) is not { } type) return "Баннер должен быть картинкой PNG, JPEG, GIF или WebP";
+        using var c = db.Open();
+        c.Execute("UPDATE news SET banner = @data, banner_type = @type, banner_at = @now WHERE id = @id",
+            new { id, data, type, now = Database.Now() });
+        return null;
+    }
+
+    public void RemoveBanner(long id)
+    {
+        using var c = db.Open();
+        c.Execute("UPDATE news SET banner = NULL, banner_type = '', banner_at = NULL WHERE id = @id", new { id });
+    }
+
+    /// <summary>The banner of a post: the picture and its type, and whether the post is published.</summary>
+    public (byte[] Data, string Type, bool Published)? Banner(long id)
+    {
+        using var c = db.Open();
+        var row = c.QuerySingleOrDefault<(byte[]? Data, string Type, bool Published)>(
+            "SELECT banner, banner_type, published FROM news WHERE id = @id", new { id });
+        return row.Data is { Length: > 0 } data ? (data, row.Type, row.Published) : null;
     }
 
     public void DeletePost(long id)

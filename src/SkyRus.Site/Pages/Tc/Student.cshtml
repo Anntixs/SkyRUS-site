@@ -93,7 +93,7 @@
         <div class="row" style="justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line);@(p.Active ? "" : "opacity:.55")">
           <div><span class="mono"><b>@p.Position</b></span> @if (!p.Active) { <span class="badge">отозван</span> }
             <div class="small muted">выдан @Format.Short(p.Issued) · @p.IssuedByName@(p.Note.Length > 0 ? " · " + p.Note : "")</div></div>
-          @if (p.Active && Model.Me.IsInstructor)
+          @if (p.Active && Model.Me.IsStaff)
           {
             <form method="post" asp-page-handler="Revoke" onsubmit="return confirm('Отозвать допуск @p.Position?')">
               <input type="hidden" name="permitId" value="@p.Id"><button class="btn btn-sm btn-danger" type="submit">Отозвать</button>
@@ -101,7 +101,7 @@
           }
         </div>
       }
-      @if (Model.Me.IsInstructor)
+      @if (Model.Me.IsStaff)
       {
         <form method="post" asp-page-handler="Permit" class="form" style="margin-top:12px">
           <input name="position" placeholder="UUEE_TWR" required style="text-transform:uppercase">

@@ -103,6 +103,14 @@ app.Use(async (ctx, next) =>
 });
 app.UseAuthorization();
 app.MapRazorPages();
+// News banners: drafts only for the administrators who edit them.
+app.MapGet("/news/{id:long}/banner", (long id, HttpContext ctx, SiteContent content, CurrentUser user) =>
+{
+    if (content.Banner(id) is not { } b || (!b.Published && !user.IsAdmin)) return Results.NotFound();
+    ctx.Response.Headers["X-Content-Type-Options"] = "nosniff";
+    ctx.Response.Headers.CacheControl = b.Published ? "public, max-age=604800" : "private, no-store";
+    return Results.File(b.Data, b.Type);
+});
 app.Run();
 
 /// <summary>Form fields left empty bind as "" rather than null.</summary>

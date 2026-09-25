@@ -96,6 +96,9 @@ img { max-width: 100%; }
 .badge.ok { background: var(--ok-soft); color: var(--ok); } .badge.warn { background: var(--warn-soft); color: var(--warn); }
 .badge.danger { background: var(--danger-soft); color: var(--danger); } .badge.accent { background: var(--accent-soft); color: var(--accent); }
 .badge.blue { background: var(--blue-soft); color: var(--blue); }
+.badge.permit { font-family: var(--mono); background: var(--blue-soft); color: var(--blue); margin: 2px 6px 2px 0; }
+.news-banner { display: block; width: 100%; max-height: 420px; object-fit: cover; border-radius: var(--radius); margin: 12px 0 18px; background: var(--surface-2); }
+.news-banner.card-banner { max-height: 200px; aspect-ratio: 16 / 9; margin: -20px -20px 14px; width: calc(100% + 40px); border-radius: var(--radius) var(--radius) 0 0; }
 .rating { font: 700 12px var(--mono); padding: 2px 7px; border-radius: 6px; background: var(--navy); color: var(--navy-ink); }
 .alert { padding: 12px 16px; border-radius: 10px; margin-bottom: 16px; background: var(--blue-soft); color: var(--ink); border-left: 4px solid var(--blue); }
 .alert.ok { background: var(--ok-soft); border-color: var(--ok); } .alert.error { background: var(--danger-soft); border-color: var(--danger); }
