@@ -106,6 +106,35 @@ public class SiteTests
         Assert.Equal(HttpStatusCode.Redirect, news.StatusCode);
         Assert.Contains("Открыт набор", await site.Browser().HtmlAsync("/"));
 
+        // A banner for the news: shown on the list, the post and the home page; only pictures are taken.
+        var postId = long.Parse(news.Headers.Location!.OriginalString.Split('/').Last());
+        byte[] png = [0x89, (byte)'P', (byte)'N', (byte)'G', 0x0D, 0x0A, 0x1A, 0x0A, 1, 2, 3, 4];
+        var withBanner = await admin.SubmitMultipartAsync($"/admin/news/{postId}",
+            new Dictionary<string, string> { ["title"] = "Открыт набор", ["body"] = "Ждём студентов", ["published"] = "true" }, ("banner", "banner.png", png));
+        Assert.Equal(HttpStatusCode.Redirect, withBanner.StatusCode);
+        var post = site.Get<SiteContent>().Post(postId)!;
+        Assert.True(post.HasBanner);
+        foreach (var page in new[] { "/", "/news", $"/news/{postId}" })
+            Assert.Contains(post.BannerUrl, System.Net.WebUtility.HtmlDecode(await site.Browser().HtmlAsync(page)));
+        var picture = await site.Browser().GetAsync(post.BannerUrl);
+        Assert.Equal("image/png", picture.Content.Headers.ContentType!.MediaType);
+        Assert.Equal(png, await picture.Content.ReadAsByteArrayAsync());
+        Assert.Equal(HttpStatusCode.NotFound, (await site.Browser().GetAsync("/news/999/banner")).StatusCode);
+
+        var notPicture = await admin.SubmitMultipartAsync($"/admin/news/{postId}",
+            new Dictionary<string, string> { ["title"] = "Открыт набор", ["body"] = "Ждём студентов", ["published"] = "true" }, ("banner", "x.svg", "<svg onload=alert(1)>"u8.ToArray())).TextAsync();
+        Assert.Contains("должен быть картинкой", notPicture);
+        Assert.Equal(png, site.Get<SiteContent>().Banner(postId)!.Value.Data);
+
+        // A draft's banner is only for administrators.
+        await admin.SubmitMultipartAsync($"/admin/news/{postId}", new Dictionary<string, string> { ["title"] = "Открыт набор", ["body"] = "Ждём студентов" });
+        Assert.Equal(HttpStatusCode.NotFound, (await site.Browser().GetAsync($"/news/{postId}/banner")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await admin.GetAsync($"/news/{postId}/banner")).StatusCode);
+
+        await admin.SubmitMultipartAsync($"/admin/news/{postId}",
+            new Dictionary<string, string> { ["title"] = "Открыт набор", ["body"] = "Ждём студентов", ["published"] = "true", ["removeBanner"] = "true" });
+        Assert.False(site.Get<SiteContent>().Post(postId)!.HasBanner);
+
         var badDoc = await admin.SubmitAsync("/admin/documents/new", new Dictionary<string, string>
             { ["title"] = "Файл", ["category"] = "", ["body"] = "", ["url"] = "javascript:alert(1)", ["sort"] = "0" }).TextAsync();
         Assert.Contains("http://", badDoc);

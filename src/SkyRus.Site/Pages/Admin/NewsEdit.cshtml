@@ -4,9 +4,16 @@
 <p><a href="/admin/news">← Новости</a></p>
 <h1>@(Model.IsNew ? "Новая новость" : "Правка новости")</h1>
 @if (Model.Error != null) { <div class="alert error">@Model.Error</div> }
-<form method="post" class="card form wide">
+<form method="post" class="card form wide" enctype="multipart/form-data">
   <label><span>Заголовок</span><input name="title" value="@n.Title" maxlength="160" required></label>
   <label><span>Текст</span><textarea name="body" style="min-height:260px" required>@n.Body</textarea></label>
+  <label><span>Баннер <span class="muted small">(PNG, JPEG, GIF или WebP до 5 МБ, лучше широкий, 16:9)</span></span>
+    <input type="file" name="banner" accept="image/png,image/jpeg,image/gif,image/webp"></label>
+  @if (n.HasBanner)
+  {
+    <img class="news-banner" src="@n.BannerUrl" alt="">
+    <label class="check"><input type="checkbox" name="removeBanner" value="true"> Убрать баннер</label>
+  }
   <label class="check"><input type="checkbox" name="published" value="true" checked="@n.Published"> Опубликовать</label>
   <div><button class="btn btn-primary" type="submit">Сохранить</button></div>
 </form>

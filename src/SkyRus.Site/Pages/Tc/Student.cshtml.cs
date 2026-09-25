@@ -52,7 +52,6 @@ public sealed class StudentModel(CurrentUser me, SiteContent content, TrainingSe
     public IActionResult OnPostPermit(long cid, string? position, string? note)
     {
         if (!Load(cid)) return NotFound();
-        if (!Me.IsInstructor) return NotFound();
         Error = training.IssuePermit(Me.Cid, cid, position ?? "", note ?? "");
         if (Error == null) Message = "Допуск выдан";
         Load(cid);
@@ -62,7 +61,6 @@ public sealed class StudentModel(CurrentUser me, SiteContent content, TrainingSe
     public IActionResult OnPostRevoke(long cid, long permitId)
     {
         if (!Load(cid)) return NotFound();
-        if (!Me.IsInstructor) return NotFound();
         if (Permits.Any(p => p.Id == permitId)) training.RevokePermit(Me.Cid, permitId);
         Message = "Допуск отозван";
         Load(cid);

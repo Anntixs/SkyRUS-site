@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using System.Net;
 using SkyRus.Site.Data;
 using SkyRus.Site.Services;
@@ -184,29 +185,38 @@ public class TrainingTests
     }
 
     [Fact]
-    public async Task Permits_ByInstructorsOnly_AndPublic()
+    public async Task Permits_ByMentorsAndInstructors_AndPublic()
     {
         var (site, instructor, mentor) = await Setup();
         using var _ = site;
         var student = await site.As(StudentCid, "Petr Student", "S1");
         await instructor.SubmitAsync("/tc/students", new Dictionary<string, string> { ["cid"] = StudentCid.ToString() }, "/tc/students?handler=Open");
 
-        var mentorTry = await mentor.SubmitAsync($"/tc/students/{StudentCid}", new Dictionary<string, string> { ["position"] = "UUEE_TWR" }, $"/tc/students/{StudentCid}?handler=Permit");
-        Assert.Equal(HttpStatusCode.NotFound, mentorTry.StatusCode);
+        // A student cannot reach the training center at all.
+        var studentTry = await student.PostAsync($"/tc/students/{StudentCid}?handler=Permit", new FormUrlEncodedContent(new Dictionary<string, string> { ["position"] = "UUEE_TWR" }));
+        Assert.NotEqual(HttpStatusCode.OK, studentTry.StatusCode);
 
-        var bad = await instructor.SubmitAsync($"/tc/students/{StudentCid}", new Dictionary<string, string> { ["position"] = "TOWER" }, $"/tc/students/{StudentCid}?handler=Permit").TextAsync();
+        var bad = await mentor.SubmitAsync($"/tc/students/{StudentCid}", new Dictionary<string, string> { ["position"] = "TOWER" }, $"/tc/students/{StudentCid}?handler=Permit").TextAsync();
         Assert.Contains("Позиция в формате", bad);
-        await instructor.SubmitAsync($"/tc/students/{StudentCid}", new Dictionary<string, string> { ["position"] = "uuee_twr", ["note"] = "" }, $"/tc/students/{StudentCid}?handler=Permit");
+        // The mentor issues a permit, the instructor another one.
+        await mentor.SubmitAsync($"/tc/students/{StudentCid}", new Dictionary<string, string> { ["position"] = "uuee_twr", ["note"] = "" }, $"/tc/students/{StudentCid}?handler=Permit");
+        await instructor.SubmitAsync($"/tc/students/{StudentCid}", new Dictionary<string, string> { ["position"] = "UUEE_GND", ["note"] = "" }, $"/tc/students/{StudentCid}?handler=Permit");
+        Assert.Equal(["UUEE_GND", "UUEE_TWR"], site.Get<TrainingService>().Permits(StudentCid).Select(p => p.Position).Order().ToArray());
 
-        var permits = await site.Browser().HtmlAsync($"/permits?fir=UUWV");
+        // The public list: the controller's name once, with all their positions and nothing else.
+        var permits = await site.Browser().HtmlAsync("/permits?fir=UUWV");
         Assert.Contains("UUEE_TWR", permits);
+        Assert.Contains("UUEE_GND", permits);
+        Assert.Single(Regex.Matches(permits, "Petr Student"));
+        Assert.DoesNotContain(StudentCid.ToString(), Regex.Replace(permits, "<head>.*?</head>", "", RegexOptions.Singleline).Split("<h1>")[1]);
+        Assert.DoesNotContain("Maria Mentor", permits);
         Assert.DoesNotContain("UUEE_TWR", await site.Browser().HtmlAsync("/permits?fir=UIII"));
         Assert.Contains("UUEE_TWR", await site.Browser().HtmlAsync("/regions/UUWV"));
         Assert.Contains("UUEE_TWR", await student.HtmlAsync("/cabinet"));
 
-        var permit = Assert.Single(site.Get<TrainingService>().Permits(StudentCid));
-        await instructor.SubmitAsync($"/tc/students/{StudentCid}", new Dictionary<string, string> { ["permitId"] = permit.Id.ToString() }, $"/tc/students/{StudentCid}?handler=Revoke");
-        Assert.Empty(site.Get<TrainingService>().Permits(StudentCid));
+        var permit = site.Get<TrainingService>().Permits(StudentCid).Single(p => p.Position == "UUEE_TWR");
+        await mentor.SubmitAsync($"/tc/students/{StudentCid}", new Dictionary<string, string> { ["permitId"] = permit.Id.ToString() }, $"/tc/students/{StudentCid}?handler=Revoke");
+        Assert.Equal("UUEE_GND", Assert.Single(site.Get<TrainingService>().Permits(StudentCid)).Position);
         Assert.DoesNotContain("UUEE_TWR", await site.Browser().HtmlAsync("/permits"));
     }
 

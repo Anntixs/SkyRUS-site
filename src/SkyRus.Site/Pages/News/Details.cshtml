@@ -5,5 +5,6 @@
   <p><a href="/news">← Новости</a></p>
   <div class="muted small">@Format.Date(n.Created) · @n.AuthorName @if (!n.Published) { <span class="badge warn">черновик</span> }</div>
   <h1 style="margin-top:6px">@n.Title</h1>
+  @if (n.HasBanner) { <img class="news-banner" src="@n.BannerUrl" alt=""> }
   <div class="pre">@n.Body</div>
 </div>

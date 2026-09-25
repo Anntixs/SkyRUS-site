@@ -41,6 +41,7 @@
     @foreach (var n in news)
     {
       <a class="card link-card" href="/news/@n.Id">
+        @if (n.HasBanner) { <img class="news-banner card-banner" src="@n.BannerUrl" alt="" loading="lazy"> }
         <div class="muted small">@Format.Date(n.Created)</div>
         <h3 style="margin:6px 0">@n.Title</h3>
         <p class="muted" style="margin:0">@(n.Body.Length > 180 ? n.Body[..180] + "…" : n.Body)</p>

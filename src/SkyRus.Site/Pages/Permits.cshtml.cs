@@ -7,13 +7,19 @@ public sealed class PermitsModel(SiteContent content, TrainingService training) 
 {
     public IReadOnlyList<Fir> Firs { get; private set; } = [];
     public Fir? Selected { get; private set; }
-    public IReadOnlyList<(Permit Permit, Fir? Fir)> List { get; private set; } = [];
+    /// <summary>Each controller once: the name and every position they hold a permit for.</summary>
+    public IReadOnlyList<(string Name, IReadOnlyList<string> Positions)> List { get; private set; } = [];
 
     public void OnGet(string? fir)
     {
         Firs = content.Firs();
         Selected = Firs.FirstOrDefault(f => f.Code.Equals(fir, StringComparison.OrdinalIgnoreCase));
-        List = training.Permits().Select(p => (p, SiteContent.FirOfPosition(Firs, p.Position)))
-            .Where(x => Selected == null || x.Item2?.Id == Selected.Id).ToList();
+        List = training.Permits()
+            .Where(p => Selected == null || SiteContent.FirOfPosition(Firs, p.Position)?.Id == Selected.Id)
+            .GroupBy(p => p.Cid)
+            .Select(g => (Name: g.First().Name.Length > 0 ? g.First().Name : g.Key.ToString(),
+                          Positions: (IReadOnlyList<string>)g.Select(p => p.Position).Distinct().Order(StringComparer.Ordinal).ToList()))
+            .OrderBy(x => x.Name, StringComparer.CurrentCulture)
+            .ToList();
     }
 }

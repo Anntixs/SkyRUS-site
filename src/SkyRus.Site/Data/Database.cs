@@ -115,6 +115,10 @@ public sealed class Database
                 body TEXT NOT NULL DEFAULT '', url TEXT NOT NULL DEFAULT '', sort INTEGER NOT NULL DEFAULT 0,
                 updated_at INTEGER NOT NULL);
             """);
+        // News banners (added later): the picture itself, its type and when it last changed.
+        var newsColumns = c.Query<string>("SELECT name FROM pragma_table_info('news')").ToHashSet();
+        if (!newsColumns.Contains("banner"))
+            c.Execute("ALTER TABLE news ADD COLUMN banner BLOB; ALTER TABLE news ADD COLUMN banner_type TEXT NOT NULL DEFAULT ''; ALTER TABLE news ADD COLUMN banner_at INTEGER;");
         Seed.Apply(c);
     }
 }
